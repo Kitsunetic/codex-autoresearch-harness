@@ -35,10 +35,10 @@
 ## Быстрый старт
 
 > [!IMPORTANT]
-> Запускайте Codex с включенными Goals, hooks и Full Access:
+> Запускайте Codex с Full Access:
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > Используйте это перед autoresearch для наиболее плавной работы foreground и background.

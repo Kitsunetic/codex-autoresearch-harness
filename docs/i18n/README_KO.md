@@ -35,10 +35,10 @@
 ## 빠른 시작
 
 > [!IMPORTANT]
-> Goals, hooks, Full Access를 켠 상태로 Codex를 시작하는 것을 권장합니다:
+> Full Access로 Codex를 시작하는 것을 권장합니다:
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > autoresearch를 시작하기 전에 이 명령으로 실행하면 foreground와 background를 가장 매끄럽게 사용할 수 있습니다.

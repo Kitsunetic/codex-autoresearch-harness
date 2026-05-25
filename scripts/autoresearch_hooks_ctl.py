@@ -22,7 +22,8 @@ FEATURE_SECTION = "features"
 HOOKS_FEATURE_KEY = "hooks"
 GOALS_FEATURE_KEY = "goals"
 HOOKS_FEATURE_DEFAULT_ENABLED = True
-GOALS_FEATURE_DEFAULT_ENABLED = False
+GOALS_FEATURE_DEFAULT_ENABLED = True
+DANGER_FULL_ACCESS_PROFILE = ":danger-full-access"
 MANAGED_DIR_NAME = "autoresearch-hooks"
 SESSION_SCRIPT_NAME = "session_start.py"
 STOP_SCRIPT_NAME = "stop.py"
@@ -31,7 +32,8 @@ CONTEXT_SCRIPT_NAME = "autoresearch_hook_context.py"
 MANIFEST_FILE_NAME = "manifest.json"
 SESSION_STATUS_MESSAGE = "codex-autoresearch SessionStart hook"
 STOP_STATUS_MESSAGE = "codex-autoresearch Stop hook"
-RECOMMENDED_LAUNCH_COMMAND = (
+FULL_ACCESS_LAUNCH_COMMAND = "codex --dangerously-bypass-approvals-and-sandbox"
+FEATURE_LAUNCH_COMMAND = (
     "codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox"
 )
 SESSION_TIMEOUT_SECONDS = 5
@@ -149,6 +151,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def recommended_launch_command(startup_tip_reasons: list[str]) -> str:
+    if {"goals_not_enabled", "hooks_not_enabled"} & set(startup_tip_reasons):
+        return FEATURE_LAUNCH_COMMAND
+    return FULL_ACCESS_LAUNCH_COMMAND
+
+
 def ensure_supported_platform() -> None:
     if os.name == "nt":
         raise AutoresearchError(
@@ -210,6 +218,13 @@ def parse_config_string_value(text: str, key: str) -> str | None:
     payload = parse_toml_config(text)
     value = payload.get(key)
     return value if isinstance(value, str) else None
+
+
+def config_full_access_enabled(text: str) -> bool:
+    return (
+        parse_config_string_value(text, "sandbox_mode") == "danger-full-access"
+        or parse_config_string_value(text, "default_permissions") == DANGER_FULL_ACCESS_PROFILE
+    )
 
 
 def current_process_command(pid: int) -> str | None:
@@ -335,6 +350,13 @@ def parse_codex_launch_overrides(argv: list[str]) -> dict[str, bool | None]:
             elif next_arg in {
                 'sandbox_mode="danger-full-access"',
                 "sandbox_mode='danger-full-access'",
+                "sandbox_mode=danger-full-access",
+            }:
+                overrides["danger_full_access"] = True
+            elif next_arg in {
+                f'default_permissions="{DANGER_FULL_ACCESS_PROFILE}"',
+                f"default_permissions='{DANGER_FULL_ACCESS_PROFILE}'",
+                f"default_permissions={DANGER_FULL_ACCESS_PROFILE}",
             }:
                 overrides["danger_full_access"] = True
             index += 1
@@ -757,7 +779,7 @@ def status() -> dict[str, Any]:
         GOALS_FEATURE_KEY,
         default=GOALS_FEATURE_DEFAULT_ENABLED,
     )
-    config_full_access = parse_config_string_value(config_text, "sandbox_mode") == "danger-full-access"
+    config_full_access = config_full_access_enabled(config_text)
     launch = current_codex_launch()
     launch_goals = launch["goals_feature_override"]
     launch_hooks = launch["hooks_feature_override"]
@@ -864,7 +886,7 @@ def status() -> dict[str, Any]:
         "persistent_setup_missing": persistent_setup_missing,
         "startup_tip_needed": bool(startup_tip_reasons),
         "startup_tip_reasons": startup_tip_reasons,
-        "recommended_launch_command": RECOMMENDED_LAUNCH_COMMAND,
+        "recommended_launch_command": recommended_launch_command(startup_tip_reasons),
     }
 
 
@@ -872,6 +894,7 @@ def install() -> dict[str, Any]:
     ensure_supported_platform()
     config_before = read_text(config_path())
     previous_hooks_feature = parse_feature_value(config_before, HOOKS_FEATURE_KEY)
+    previous_goals_feature = parse_feature_value(config_before, GOALS_FEATURE_KEY)
 
     install_managed_scripts()
 
@@ -893,7 +916,7 @@ def install() -> dict[str, Any]:
             command=session_command,
             status_message=SESSION_STATUS_MESSAGE,
             timeout=SESSION_TIMEOUT_SECONDS,
-            matcher="startup|resume",
+            matcher="startup|resume|compact",
         )
     )
     hooks_map["SessionStart"] = session_groups
@@ -919,12 +942,13 @@ def install() -> dict[str, Any]:
             key=HOOKS_FEATURE_KEY,
             value=True,
         )
-    updated_config = set_toml_boolean(
-        updated_config,
-        section=FEATURE_SECTION,
-        key=GOALS_FEATURE_KEY,
-        value=True,
-    )
+    if previous_goals_feature is False:
+        updated_config = set_toml_boolean(
+            updated_config,
+            section=FEATURE_SECTION,
+            key=GOALS_FEATURE_KEY,
+            value=True,
+        )
     updated_config = set_toml_hook_trust_state(
         updated_config,
         managed_hook_trust_entries_from_payload(payload),

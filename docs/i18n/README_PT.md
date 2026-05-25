@@ -35,10 +35,10 @@ Inspirado no [autoresearch do Karpathy](https://github.com/karpathy/autoresearch
 ## Início rápido
 
 > [!IMPORTANT]
-> Inicie o Codex com Goals, hooks e Full Access ativados:
+> Inicie o Codex com Full Access:
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > Use isto antes de iniciar autoresearch para a experiência mais fluida em foreground e background.

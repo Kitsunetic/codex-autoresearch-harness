@@ -24,10 +24,10 @@ Verify: open Codex in the target repo, type `$`, confirm `codex-autoresearch` ap
 See [INSTALL.md](INSTALL.md) for skill installer, manual copy, user-scope, and live-development options.
 
 > [!IMPORTANT]
-> For the smoothest foreground and background experience, start Codex with Goals, hooks, and Full Access:
+> For the smoothest foreground and background experience, start Codex with Full Access:
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > Use this before starting autoresearch for the smoothest foreground and background experience.

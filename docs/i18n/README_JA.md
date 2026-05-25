@@ -35,10 +35,10 @@
 ## クイックスタート
 
 > [!IMPORTANT]
-> Goals、hooks、Full Access を有効にして Codex を起動することを推奨します：
+> Full Access で Codex を起動することを推奨します：
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > autoresearch を始める前にこのコマンドで起動すると、foreground と background が最もスムーズに動きます。

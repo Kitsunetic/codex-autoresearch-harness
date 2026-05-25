@@ -35,10 +35,10 @@
 ## 快速上手
 
 > [!IMPORTANT]
-> 推荐用 Goals、hooks 和 Full Access 启动 Codex：
+> 推荐用 Full Access 启动 Codex：
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > 开始 autoresearch 前先用这个命令启动，foreground 和 background 体验最完整。

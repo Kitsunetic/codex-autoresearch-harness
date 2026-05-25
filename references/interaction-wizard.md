@@ -24,7 +24,7 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 10. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
 11. End the confirmation summary with a short runtime checklist that reinforces execution order: baseline first, then initialize artifacts, and always log a completed experiment before starting the next one.
 12. After the launch gate allows a fresh or confirmed interactive launch, check `python3 <skill-root>/scripts/autoresearch_hooks_ctl.py status`. If setup is missing, stale, disabled, or untrusted, run `python3 <skill-root>/scripts/autoresearch_hooks_ctl.py install` before clarification continues. Treat this as internal preparation; keep setup details out of the user-facing summary unless a setup failure blocks launch. Use model-visible goal tools when they are actually available.
-13. Capture the first status response's `startup_tip_needed` value before any install/update. If true, show one product-facing startup tip in the confirmation summary: "For the smoothest long-running runs, start Codex with `codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox`." Do not expose status field names or claim to have detected the exact shell command.
+13. Capture the first status response's `startup_tip_needed` value before any install/update. If true, show one product-facing startup tip in the confirmation summary using that status response's `recommended_launch_command`. Do not expose status field names or claim to have detected the exact shell command.
 
 ## Clarification Protocol
 
@@ -122,7 +122,7 @@ When the user replies with launch approval (`go`, `start`, `launch`, or an equiv
    - initialize `autoresearch-results/results.tsv`, `autoresearch-results/state.json`, and `autoresearch-results/context.json`
    - do not create `autoresearch-results/launch.json`, `autoresearch-results/runtime.json`, or `autoresearch-results/runtime.log`
    - keep the runtime checklist active: baseline first, then log every completed experiment before the next one starts
-   - mark the official Codex goal complete only when the configured autoresearch success condition is actually met; hard blockers and user interruptions are not complete goals
+   - mark the official Codex goal complete only when the configured autoresearch success condition is actually met; mark it blocked only for a true blocker that needs external input or an environment change
    - report that the foreground run has started in the current session
 4. If the user chose **background**, persist the confirmed config to `autoresearch-results/launch.json`, start the detached runtime controller, and report the Results directory. The wizard supplies the confirmed `--workspace-root <workspace_root>` internally; users should not have to type it.
    - the nested background session must receive the same runtime checklist, especially the "log before the next experiment" rule

@@ -14,7 +14,7 @@
 > Recommended launch command:
 >
 > ```bash
-> codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox
+> codex --dangerously-bypass-approvals-and-sandbox
 > ```
 >
 > Use this before starting autoresearch for the smoothest foreground and background experience.

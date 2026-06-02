@@ -323,6 +323,7 @@ class AutoresearchScriptsTestBase(unittest.TestCase):
         expected_statuses: set[str],
         *,
         timeout: float = 10.0,
+        require_runtime_stopped: bool = False,
     ) -> dict[str, object]:
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -333,6 +334,9 @@ class AutoresearchScriptsTestBase(unittest.TestCase):
                 str(repo),
             )
             if status["status"] in expected_statuses:
+                if require_runtime_stopped and status.get("runtime_running"):
+                    time.sleep(0.1)
+                    continue
                 return status
             time.sleep(0.1)
         self.fail(f"Timed out waiting for runtime status in {expected_statuses}")

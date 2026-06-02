@@ -24,6 +24,8 @@ GOALS_FEATURE_KEY = "goals"
 HOOKS_FEATURE_DEFAULT_ENABLED = True
 GOALS_FEATURE_DEFAULT_ENABLED = True
 DANGER_FULL_ACCESS_PROFILE = ":danger-full-access"
+PROFILE_CONFIG_SUFFIX = ".config.toml"
+PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 MANAGED_DIR_NAME = "autoresearch-hooks"
 SESSION_SCRIPT_NAME = "session_start.py"
 STOP_SCRIPT_NAME = "stop.py"
@@ -62,6 +64,12 @@ def hooks_home() -> Path:
 
 def config_path() -> Path:
     return codex_home() / "config.toml"
+
+
+def profile_config_path(profile: str) -> Path | None:
+    if not PROFILE_NAME_PATTERN.match(profile):
+        return None
+    return codex_home() / f"{profile}{PROFILE_CONFIG_SUFFIX}"
 
 
 def hooks_path() -> Path:
@@ -214,17 +222,44 @@ def feature_enabled_from_config(text: str, key: str, *, default: bool) -> bool:
     return default if value is None else value
 
 
+def feature_enabled_from_layers(
+    base_text: str,
+    profile_text: str,
+    key: str,
+    *,
+    default: bool,
+) -> bool:
+    profile_value = parse_feature_value(profile_text, key)
+    if profile_value is not None:
+        return profile_value
+    return feature_enabled_from_config(base_text, key, default=default)
+
+
 def parse_config_string_value(text: str, key: str) -> str | None:
     payload = parse_toml_config(text)
     value = payload.get(key)
     return value if isinstance(value, str) else None
 
 
+def config_full_access_value(text: str) -> bool | None:
+    default_permissions = parse_config_string_value(text, "default_permissions")
+    if default_permissions is not None:
+        return default_permissions == DANGER_FULL_ACCESS_PROFILE
+    sandbox_mode = parse_config_string_value(text, "sandbox_mode")
+    if sandbox_mode is not None:
+        return sandbox_mode == "danger-full-access"
+    return None
+
+
 def config_full_access_enabled(text: str) -> bool:
-    return (
-        parse_config_string_value(text, "sandbox_mode") == "danger-full-access"
-        or parse_config_string_value(text, "default_permissions") == DANGER_FULL_ACCESS_PROFILE
-    )
+    return config_full_access_value(text) is True
+
+
+def full_access_enabled_from_layers(base_text: str, profile_text: str) -> bool:
+    profile_value = config_full_access_value(profile_text)
+    if profile_value is not None:
+        return profile_value
+    return config_full_access_enabled(base_text)
 
 
 def current_process_command(pid: int) -> str | None:
@@ -295,11 +330,12 @@ def is_interactive_codex_invocation(argv: list[str]) -> bool:
     return not any(arg in {"app-server", "mcp-server", "remote-control"} for arg in argv[1:3])
 
 
-def parse_codex_launch_overrides(argv: list[str]) -> dict[str, bool | None]:
-    overrides: dict[str, bool | None] = {
+def parse_codex_launch_overrides(argv: list[str]) -> dict[str, bool | str | None]:
+    overrides: dict[str, bool | str | None] = {
         "goals_feature": None,
         "hooks_feature": None,
         "danger_full_access": None,
+        "profile": None,
     }
     index = 1
     while index < len(argv):
@@ -329,13 +365,24 @@ def parse_codex_launch_overrides(argv: list[str]) -> dict[str, bool | None]:
             elif feature_value == HOOKS_FEATURE_KEY:
                 overrides["hooks_feature"] = feature_enabled
 
-        if arg == "--dangerously-bypass-approvals-and-sandbox":
+        if arg in {"--dangerously-bypass-approvals-and-sandbox", "--yolo"}:
             overrides["danger_full_access"] = True
+        elif arg in {"--profile", "-p"} and next_arg is not None:
+            overrides["profile"] = next_arg
+            index += 1
+        elif arg.startswith("--profile="):
+            overrides["profile"] = arg.split("=", 1)[1]
+        elif arg.startswith("-p="):
+            overrides["profile"] = arg.split("=", 1)[1]
+        elif arg.startswith("-p") and len(arg) > 2:
+            overrides["profile"] = arg[2:]
         elif arg in {"--sandbox", "-s"} and next_arg is not None:
             overrides["danger_full_access"] = next_arg == "danger-full-access"
             index += 1
         elif arg.startswith("--sandbox=") or arg.startswith("-s="):
             overrides["danger_full_access"] = arg.split("=", 1)[1] == "danger-full-access"
+        elif arg.startswith("-s") and len(arg) > 2:
+            overrides["danger_full_access"] = arg[2:] == "danger-full-access"
         elif arg in {"--config", "-c"} and next_arg is not None:
             if next_arg in {
                 f"{FEATURE_SECTION}.{GOALS_FEATURE_KEY}=true",
@@ -376,12 +423,14 @@ def current_codex_launch() -> dict[str, Any]:
             "goals_feature_override": overrides["goals_feature"],
             "hooks_feature_override": overrides["hooks_feature"],
             "danger_full_access_override": overrides["danger_full_access"],
+            "profile": overrides["profile"],
         }
     return {
         "codex_process_detected": False,
         "goals_feature_override": None,
         "hooks_feature_override": None,
         "danger_full_access_override": None,
+        "profile": None,
     }
 
 
@@ -769,6 +818,10 @@ def remove_managed_bundle_files() -> int:
 
 def status() -> dict[str, Any]:
     config_text = read_text(config_path())
+    launch = current_codex_launch()
+    profile = launch.get("profile")
+    active_profile_path = profile_config_path(profile) if isinstance(profile, str) else None
+    profile_config_text = read_text(active_profile_path) if active_profile_path is not None else ""
     hooks_feature_enabled = feature_enabled_from_config(
         config_text,
         HOOKS_FEATURE_KEY,
@@ -780,18 +833,33 @@ def status() -> dict[str, Any]:
         default=GOALS_FEATURE_DEFAULT_ENABLED,
     )
     config_full_access = config_full_access_enabled(config_text)
-    launch = current_codex_launch()
+    profile_full_access = config_full_access_value(profile_config_text)
+    effective_config_full_access = full_access_enabled_from_layers(config_text, profile_config_text)
     launch_goals = launch["goals_feature_override"]
     launch_hooks = launch["hooks_feature_override"]
     launch_full_access = launch["danger_full_access_override"]
     current_goals_feature_enabled = (
-        bool(launch_goals) if launch_goals is not None else goals_feature_enabled
+        bool(launch_goals)
+        if launch_goals is not None
+        else feature_enabled_from_layers(
+            config_text,
+            profile_config_text,
+            GOALS_FEATURE_KEY,
+            default=GOALS_FEATURE_DEFAULT_ENABLED,
+        )
     )
     current_hooks_feature_enabled = (
-        bool(launch_hooks) if launch_hooks is not None else hooks_feature_enabled
+        bool(launch_hooks)
+        if launch_hooks is not None
+        else feature_enabled_from_layers(
+            config_text,
+            profile_config_text,
+            HOOKS_FEATURE_KEY,
+            default=HOOKS_FEATURE_DEFAULT_ENABLED,
+        )
     )
     current_full_access = (
-        bool(launch_full_access) if launch_full_access is not None else config_full_access
+        bool(launch_full_access) if launch_full_access is not None else effective_config_full_access
     )
     hooks_payload = normalize_hooks_payload(
         load_json_file(hooks_path(), default={"hooks": {}})
@@ -865,6 +933,9 @@ def status() -> dict[str, Any]:
         "hooks_feature_enabled": hooks_feature_enabled,
         "goals_feature_enabled": goals_feature_enabled,
         "config_full_access": config_full_access,
+        "active_profile": profile,
+        "active_profile_config_path": str(active_profile_path) if active_profile_path else None,
+        "active_profile_full_access": profile_full_access,
         "current_launch": launch,
         "current_session_goals_feature_enabled": current_goals_feature_enabled,
         "current_session_hooks_feature_enabled": current_hooks_feature_enabled,

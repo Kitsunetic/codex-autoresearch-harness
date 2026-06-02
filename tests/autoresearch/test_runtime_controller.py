@@ -1723,7 +1723,11 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 "--max-stagnation",
                 "2",
             )
-            status = self.wait_for_runtime_status(tmpdir, {"needs_human"})
+            status = self.wait_for_runtime_status(
+                tmpdir,
+                {"needs_human"},
+                require_runtime_stopped=True,
+            )
             self.assertEqual(status["status"], "needs_human")
             self.assertEqual(status["reason"], "startup_failed_before_artifacts")
             self.assertEqual(counter_path.read_text(encoding="utf-8"), "2")
@@ -1754,7 +1758,11 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 "--max-stagnation",
                 "1",
             )
-            status = self.wait_for_runtime_status(tmpdir, {"needs_human"})
+            status = self.wait_for_runtime_status(
+                tmpdir,
+                {"needs_human"},
+                require_runtime_stopped=True,
+            )
             self.assertEqual(status["reason"], "startup_failed_before_artifacts")
             self.assertIn("current sandbox", str(status["error"]))
             self.assertIn("workspace-write", str(status["error"]))

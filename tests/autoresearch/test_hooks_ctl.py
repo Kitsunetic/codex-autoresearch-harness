@@ -280,6 +280,26 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             self.assertTrue(status["current_session_full_access"])
             self.assertNotIn("full_access_not_enabled", status["startup_tip_reasons"])
 
+    def test_status_default_permissions_wins_over_legacy_sandbox_in_same_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            (codex_home / "config.toml").write_text(
+                'sandbox_mode = "danger-full-access"\n'
+                'default_permissions = ":workspace"\n',
+                encoding="utf-8",
+            )
+
+            status = self.run_script("autoresearch_hooks_ctl.py", "status", env=env)
+
+            self.assertTrue(status["startup_tip_needed"])
+            self.assertFalse(status["config_full_access"])
+            self.assertFalse(status["current_session_full_access"])
+            self.assertIn("full_access_not_enabled", status["startup_tip_reasons"])
+
     def test_status_treats_current_default_permissions_override_as_full_access(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -299,6 +319,171 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             self.assertFalse(status["startup_tip_needed"])
             self.assertTrue(status["current_session_full_access"])
             self.assertNotIn("full_access_not_enabled", status["startup_tip_reasons"])
+
+    def test_status_treats_yolo_alias_as_full_access(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            env = self.hook_env(home)
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex --yolo",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertFalse(status["startup_tip_needed"])
+            self.assertTrue(status["current_session_full_access"])
+            self.assertNotIn("full_access_not_enabled", status["startup_tip_reasons"])
+
+    def test_status_treats_active_profile_full_access_as_session_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            (codex_home / "work.config.toml").write_text(
+                'default_permissions = ":danger-full-access"\n',
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex --profile work",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertFalse(status["startup_tip_needed"])
+            self.assertEqual(status["active_profile"], "work")
+            self.assertTrue(status["active_profile_full_access"])
+            self.assertTrue(status["current_session_full_access"])
+            self.assertNotIn("full_access_not_enabled", status["startup_tip_reasons"])
+
+    def test_status_parses_attached_short_profile_and_sandbox_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            (codex_home / "work.config.toml").write_text(
+                "[features]\nhooks = false\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex -pwork -sdanger-full-access",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertEqual(status["active_profile"], "work")
+            self.assertTrue(status["current_session_full_access"])
+            self.assertFalse(status["current_session_hooks_feature_enabled"])
+            self.assertIn("hooks_not_enabled", status["startup_tip_reasons"])
+
+    def test_status_lets_active_profile_override_base_full_access(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            (codex_home / "config.toml").write_text(
+                'default_permissions = ":danger-full-access"\n',
+                encoding="utf-8",
+            )
+            (codex_home / "work.config.toml").write_text(
+                'default_permissions = ":workspace"\n',
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex -p work",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertTrue(status["startup_tip_needed"])
+            self.assertTrue(status["config_full_access"])
+            self.assertFalse(status["active_profile_full_access"])
+            self.assertFalse(status["current_session_full_access"])
+            self.assertIn("full_access_not_enabled", status["startup_tip_reasons"])
+
+    def test_status_reads_feature_flags_from_active_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            (codex_home / "work.config.toml").write_text(
+                'default_permissions = ":danger-full-access"\n\n[features]\nhooks = false\n',
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex --profile=work",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertTrue(status["startup_tip_needed"])
+            self.assertFalse(status["current_session_hooks_feature_enabled"])
+            self.assertIn("hooks_not_enabled", status["startup_tip_reasons"])
+            self.assertEqual(
+                status["recommended_launch_command"],
+                "codex --enable goals --enable hooks --dangerously-bypass-approvals-and-sandbox",
+            )
+
+    def test_status_ignores_non_plain_profile_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            env = self.hook_env(home)
+            nested_dir = codex_home / "nested"
+            nested_dir.mkdir()
+            (nested_dir / "work.config.toml").write_text(
+                'default_permissions = ":danger-full-access"\n',
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(
+                hooks_ctl,
+                "parent_process_commands",
+                return_value=[
+                    "python3 /tmp/status.py",
+                    "codex --profile nested/work",
+                ],
+            ):
+                status = hooks_ctl.status()
+
+            self.assertIsNone(status["active_profile_config_path"])
+            self.assertTrue(status["startup_tip_needed"])
+            self.assertIn("full_access_not_enabled", status["startup_tip_reasons"])
 
     def test_status_treats_goals_as_enabled_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

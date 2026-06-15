@@ -1757,4 +1757,17 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
                 "--codex-bin",
                 "/bin/echo",
             )
-            self.assertEqual(started["status"], "running")
+            try:
+                self.assertEqual(started["status"], "running")
+            finally:
+                self.run_script(
+                    "autoresearch_runtime_ctl.py",
+                    "stop",
+                    "--repo",
+                    str(repo),
+                )
+                self.wait_for_runtime_status(
+                    repo,
+                    {"stopped"},
+                    require_runtime_stopped=True,
+                )

@@ -1760,14 +1760,12 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             try:
                 self.assertEqual(started["status"], "running")
             finally:
-                self.run_script(
+                stopped = self.run_script(
                     "autoresearch_runtime_ctl.py",
                     "stop",
                     "--repo",
                     str(repo),
+                    "--runtime-path",
+                    str(repo / "autoresearch-results/runtime.json"),
                 )
-                self.wait_for_runtime_status(
-                    repo,
-                    {"stopped"},
-                    require_runtime_stopped=True,
-                )
+                self.assertEqual(stopped["status"], "stopped")

@@ -978,7 +978,7 @@ def run_runtime(args: argparse.Namespace) -> int:
             codex_env[HOOK_RUNTIME_PATH_ENV] = str(runtime_path)
             sqlite_home = results_path.parent / "codex-sqlite"
             sqlite_home.mkdir(parents=True, exist_ok=True)
-            codex_env.setdefault("CODEX_SQLITE_HOME", str(sqlite_home))
+            codex_env["CODEX_SQLITE_HOME"] = str(sqlite_home)
             codex_exit = subprocess.run(
                 codex_cmd,
                 cwd=workspace_root,

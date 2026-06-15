@@ -1748,6 +1748,8 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             )
             self.create_launch_manifest(repo, verify="python3 -c pass")
             (repo / "src" / "core.py").write_text("print('changed')\n", encoding="utf-8")
+            fake_codex_path = repo / "autoresearch-results" / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
 
             started = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -1755,7 +1757,7 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
                 "--repo",
                 str(repo),
                 "--codex-bin",
-                "/bin/echo",
+                str(fake_codex_path),
             )
             try:
                 self.assertEqual(started["status"], "running")

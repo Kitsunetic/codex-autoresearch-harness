@@ -191,6 +191,20 @@ Por padrão o loop favorece passos pequenos e verificáveis — isso é intencio
 
 Construído sobre ideias do [autoresearch do Karpathy](https://github.com/karpathy/autoresearch). A plataforma Codex skills é da [OpenAI](https://openai.com).
 
+## Citation
+
+Se você usar o Codex Autoresearch no seu trabalho, cite-o assim:
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

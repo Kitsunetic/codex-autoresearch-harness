@@ -191,6 +191,20 @@ iteration  commit   metric  delta   status    description
 
 [Karpathy의 autoresearch](https://github.com/karpathy/autoresearch) 아이디어를 기반으로 구축. Codex skills 플랫폼은 [OpenAI](https://openai.com) 제공.
 
+## Citation
+
+Codex Autoresearch를 작업에 사용한다면 다음 형식으로 인용해 주세요:
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

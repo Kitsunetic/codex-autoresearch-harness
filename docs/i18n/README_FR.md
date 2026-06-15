@@ -191,6 +191,20 @@ C'est le plus efficace quand l'objectif et la métrique sont clairs — augmente
 
 Construit sur les idées d'[autoresearch de Karpathy](https://github.com/karpathy/autoresearch). La plateforme Codex skills est développée par [OpenAI](https://openai.com).
 
+## Citation
+
+Si vous utilisez Codex Autoresearch dans vos travaux, veuillez le citer ainsi :
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

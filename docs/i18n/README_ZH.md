@@ -191,6 +191,20 @@ iteration  commit   metric  delta   status    description
 
 基于 [Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch) 的理念构建。Codex skills 平台由 [OpenAI](https://openai.com) 提供。
 
+## Citation
+
+如果你在工作中使用 Codex Autoresearch，请按如下方式引用：
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

@@ -192,6 +192,20 @@ It's strongest when the goal and metric are clear — push coverage up, push err
 
 Built on ideas from [Karpathy's autoresearch](https://github.com/karpathy/autoresearch). The Codex skills platform is by [OpenAI](https://openai.com).
 
+## Citation
+
+If you use Codex Autoresearch in your work, please cite it as:
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

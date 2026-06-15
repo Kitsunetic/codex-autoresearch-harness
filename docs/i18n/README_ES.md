@@ -191,6 +191,20 @@ Es más fuerte cuando el objetivo y la métrica están claros — subir cobertur
 
 Construido sobre ideas de [autoresearch de Karpathy](https://github.com/karpathy/autoresearch). La plataforma Codex skills es de [OpenAI](https://openai.com).
 
+## Citation
+
+Si usas Codex Autoresearch en tu trabajo, cítalo así:
+
+```bibtex
+@misc{codex-autoresearch,
+  author = {Li, Linxiao},
+  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+}
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">

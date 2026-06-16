@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use Codex Autoresearch in your work, please cite it using the metadata in this file."
+type: software
+title: "Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex"
+authors:
+  - family-names: "Li"
+    given-names: "Linxiao"
+repository-code: "https://github.com/leo-lilinxiao/codex-autoresearch"
+url: "https://github.com/leo-lilinxiao/codex-autoresearch"
+license: "MIT"
+keywords:
+  - codex
+  - codex-cli
+  - codex-skill
+  - autoresearch
+  - autonomous-agent
+  - developer-tools

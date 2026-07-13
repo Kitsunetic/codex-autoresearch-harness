@@ -118,7 +118,8 @@ autoresearch-results/
 ├── events.jsonl
 ├── logs/
 ├── runtime.json       # background only
-└── runtime.log        # background only
+├── runtime.log        # background only
+└── report.html        # generated on request
 ```
 
 `run.json` is immutable configuration. `events.jsonl` is the append-only source of truth for current state. Logs contain complete command and worker output.
@@ -126,6 +127,20 @@ autoresearch-results/
 Do not edit these files. A malformed or inconsistent file stops the run instead of being reconstructed. To start a different goal, ask the skill to archive the current run first; archives remain below `autoresearch-results/archive/`.
 
 If the current run is still active, stop a background run first. For foreground, clear the old Codex Goal with `/goal clear`, then ask the skill to archive the run and start the new goal.
+
+## History And Reports
+
+Use the same skill entry to inspect any initialized run:
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+History renders a terminal table from the fully validated event log. TSV is emitted on request for spreadsheets or scripts. The HTML command writes a self-contained snapshot to `autoresearch-results/report.html` with the metric trajectory, keep/discard timeline, commits, and log links.
+
+These views never replace or update `events.jsonl`. Delete or regenerate the HTML report at any time; an active run requires a fresh report command to include later iterations.
 
 ## Git History
 

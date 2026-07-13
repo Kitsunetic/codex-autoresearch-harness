@@ -68,6 +68,16 @@ Foreground는 공식 Goal로 계속 실행됩니다. Background는 Goal 없이 c
 
 `events.jsonl`이 유일한 실행 상태입니다. 누락, 손상, 충돌이 있으면 추측해 복구하지 않고 명확하게 실패합니다.
 
+## 기록과 보고서
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+기록 표와 HTML은 검증된 이벤트에서 생성됩니다. HTML 스냅샷은 `autoresearch-results/report.html`에 저장되며 실행 상태나 복구에는 사용되지 않습니다.
+
 ## 신뢰성
 
 - 새 실행에는 깨끗한 이름 있는 Git 브랜치가 필요합니다.

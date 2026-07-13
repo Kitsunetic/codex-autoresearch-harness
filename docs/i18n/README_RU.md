@@ -68,6 +68,16 @@ Foreground продолжается через официальный Goal. Back
 
 `events.jsonl` является единственным источником состояния. Отсутствующие, поврежденные или противоречивые данные вызывают явную ошибку и не восстанавливаются по догадкам.
 
+## История и отчет
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+Таблица и HTML-отчет строятся из проверенных событий. HTML-снимок сохраняется в `autoresearch-results/report.html` и не используется как состояние или источник восстановления.
+
 ## Гарантии
 
 - Новый запуск требует чистую именованную ветку Git.

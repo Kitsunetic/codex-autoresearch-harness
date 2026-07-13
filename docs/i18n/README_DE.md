@@ -68,6 +68,16 @@ Nicht eingecheckte Dateien liegen unter `autoresearch-results/`:
 
 `events.jsonl` ist die einzige Zustandsquelle. Fehlende, beschädigte oder widersprüchliche Daten führen zu einem klaren Fehler und werden nicht erraten oder rekonstruiert.
 
+## Verlauf und Bericht
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+Tabelle und HTML-Bericht werden aus validierten Ereignissen erzeugt. Der HTML-Schnappschuss liegt unter `autoresearch-results/report.html` und ist weder Laufzeitstatus noch Wiederherstellungsquelle.
+
 ## Garantien
 
 - Neue Läufe benötigen einen sauberen, benannten Git-Branch.

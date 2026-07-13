@@ -53,7 +53,11 @@ copy_skill() {
   mkdir -p "$destination/references" "$destination/scripts" "$destination/agents"
   cp "$ROOT/SKILL.md" "$destination/SKILL.md"
   cp "$ROOT/references/"*.md "$destination/references/"
-  cp "$ROOT/scripts/autoresearch.py" "$ROOT/scripts/autoresearch_core.py" "$destination/scripts/"
+  cp \
+    "$ROOT/scripts/autoresearch.py" \
+    "$ROOT/scripts/autoresearch_core.py" \
+    "$ROOT/scripts/autoresearch_report.py" \
+    "$destination/scripts/"
   cp "$ROOT/agents/openai.yaml" "$destination/agents/openai.yaml"
 }
 

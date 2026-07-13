@@ -68,6 +68,16 @@ Les fichiers non commités se trouvent dans `autoresearch-results/` :
 
 `events.jsonl` est l'unique source d'état. Un fichier manquant, corrompu ou contradictoire provoque une erreur explicite ; aucune reconstruction approximative n'est tentée.
 
+## Historique et rapport
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+Le tableau et le rapport HTML sont générés à partir des événements validés. L'instantané HTML est écrit dans `autoresearch-results/report.html` et ne participe ni à l'état ni à la reprise.
+
 ## Garanties
 
 - Une nouvelle exécution exige une branche Git nommée et propre.

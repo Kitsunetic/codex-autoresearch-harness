@@ -68,6 +68,16 @@ Foreground は公式 Goal で継続します。Background は Goal を作らず 
 
 `events.jsonl` が唯一の実行状態です。欠損、破損、矛盾があれば推測で復旧せず、明確に失敗します。
 
+## 履歴とレポート
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+履歴表と HTML は検証済みイベントから生成されます。HTML スナップショットは `autoresearch-results/report.html` に保存され、実行状態や復旧には使用されません。
+
 ## 信頼性
 
 - 新しい実行にはクリーンな名前付き Git ブランチが必要です。

@@ -57,7 +57,9 @@ from autoresearch_core import (
     working_paths,
     write_json_atomic,
     write_runtime,
+    write_text_atomic,
 )
+from autoresearch_report import render_history_table, render_history_tsv, render_html_report
 
 
 def print_json(payload: dict[str, Any]) -> None:
@@ -122,6 +124,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     status_parser = subparsers.add_parser("status", help="Print validated run and runtime status.")
     add_repo_argument(status_parser)
+
+    history_parser = subparsers.add_parser(
+        "history", help="Print a validated human-readable or TSV experiment history."
+    )
+    add_repo_argument(history_parser)
+    history_parser.add_argument("--format", choices=["table", "tsv"], default="table")
+
+    report_parser = subparsers.add_parser(
+        "report", help="Generate a self-contained static HTML report."
+    )
+    add_repo_argument(report_parser)
 
     stop_parser = subparsers.add_parser("stop", help="Stop a detached background run.")
     add_repo_argument(stop_parser)
@@ -814,6 +827,29 @@ def show_status(args: argparse.Namespace) -> dict[str, Any]:
         ),
     }
     return payload
+
+
+def show_history(args: argparse.Namespace) -> str:
+    _, run, events, state = load_context(Path(args.repo).expanduser().resolve())
+    if args.format == "tsv":
+        return render_history_tsv(events)
+    return render_history_table(run, state, events)
+
+
+def generate_report(args: argparse.Namespace) -> dict[str, Any]:
+    repo = Path(args.repo).expanduser().resolve()
+    paths, run, events, state = load_context(repo)
+    output = paths.root / "report.html"
+    try:
+        write_text_atomic(output, render_html_report(run, state, events))
+    except OSError as exc:
+        raise AutoresearchError(f"Cannot write HTML report {output}: {exc}") from exc
+    return {
+        "status": state.status,
+        "report": str(output),
+        "event_count": len(events),
+        "iterations": state.iterations,
+    }
 
 
 def runtime_event(paths: Paths, event: str, **fields: Any) -> None:
@@ -1522,6 +1558,11 @@ def main() -> int:
         output = block_run(args)
     elif args.command == "status":
         output = show_status(args)
+    elif args.command == "history":
+        print(show_history(args), end="")
+        return 0
+    elif args.command == "report":
+        output = generate_report(args)
     elif args.command == "stop":
         output = stop_background(args)
     elif args.command == "resume":

@@ -53,6 +53,16 @@ Use the same skill entry for controls:
 
 Read `background.md` before launching or controlling a detached run.
 
+## Read-Only Views
+
+For any initialized run:
+
+- "show history" -> `history --repo <repo>`
+- "export TSV" -> `history --repo <repo> --format tsv`
+- "generate an HTML report" -> `report --repo <repo>`
+
+Each command validates `run.json` and the complete `events.jsonl` before rendering. The HTML file is a replaceable snapshot under `autoresearch-results/report.html`, not state and never a recovery source.
+
 ## Existing Run
 
 Always trust validated events, not conversational memory.

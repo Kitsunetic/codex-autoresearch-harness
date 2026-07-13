@@ -68,6 +68,16 @@ Foreground 由 Codex 官方 Goal 持续运行。Background 不创建 Goal，由 
 
 `events.jsonl` 是运行状态的唯一事实来源。缺失、损坏或矛盾的状态会直接报错，不会从旧文件或对话内容里猜测恢复。
 
+## 查看运行结果
+
+```text
+$codex-autoresearch 查看实验历史
+$codex-autoresearch 将实验历史导出为 TSV
+$codex-autoresearch 生成 HTML 报告
+```
+
+历史表格和 HTML 都从验证后的事件动态生成。HTML 快照写入 `autoresearch-results/report.html`，不参与运行状态或恢复。
+
 ## 可靠性边界
 
 - 新运行要求一个干净、具名的 Git 分支。

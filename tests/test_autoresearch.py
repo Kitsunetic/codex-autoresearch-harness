@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import subprocess
@@ -139,6 +141,91 @@ class AutoresearchTest(unittest.TestCase):
         subjects = self.git("log", "-2", "--format=%s").stdout
         self.assertIn('Revert "autoresearch: try a larger value"', subjects)
         self.assertEqual([], [line for line in self.git("status", "--short").stdout.splitlines() if "autoresearch-results" not in line])
+
+    def test_history_table_and_tsv_render_discard_without_changing_events(self) -> None:
+        self.init()
+        active_report = json.loads(self.cli("report", "--repo", str(self.repo)).stdout)
+        self.assertEqual("active", active_report["status"])
+        self.assertTrue(Path(active_report["report"]).is_file())
+        self.set_value(4)
+        self.cli(
+            "finish",
+            "--repo",
+            str(self.repo),
+            "--description",
+            "=1+1 try a larger value",
+        )
+        events_path = self.repo / "autoresearch-results" / "events.jsonl"
+        events_before = events_path.read_bytes()
+
+        table = self.cli("history", "--repo", str(self.repo)).stdout
+        self.assertIn("Run:", table)
+        self.assertIn("Metric: value  3 -> 3", table)
+        self.assertIn("discard", table)
+        self.assertIn("=1+1 try a larger value", table)
+
+        tsv = self.cli(
+            "history",
+            "--repo",
+            str(self.repo),
+            "--format",
+            "tsv",
+        ).stdout
+        rows = list(csv.DictReader(io.StringIO(tsv), delimiter="\t"))
+        self.assertEqual(["baseline", "discard"], [row["event"] for row in rows])
+        self.assertEqual("4", rows[1]["trial_metric"])
+        self.assertEqual("3", rows[1]["retained_metric"])
+        self.assertEqual("'=1+1 try a larger value", rows[1]["description"])
+        self.assertTrue(rows[1]["trial_commit"])
+        self.assertTrue(rows[1]["revert_commit"])
+        self.assertEqual("not_run", rows[1]["guard"])
+        self.assertEqual(events_before, events_path.read_bytes())
+
+    def test_html_report_is_self_contained_escaped_and_read_only(self) -> None:
+        self.init()
+        self.set_value(4)
+        self.cli(
+            "finish",
+            "--repo",
+            str(self.repo),
+            "--description",
+            "discard <script>alert(1)</script>",
+        )
+        self.set_value(0)
+        self.cli(
+            "finish",
+            "--repo",
+            str(self.repo),
+            "--description",
+            "reach target & finish",
+        )
+        events_path = self.repo / "autoresearch-results" / "events.jsonl"
+        events_before = events_path.read_bytes()
+
+        receipt = json.loads(self.cli("report", "--repo", str(self.repo)).stdout)
+        report_path = Path(receipt["report"])
+        report = report_path.read_text(encoding="utf-8")
+        self.assertEqual("complete", receipt["status"])
+        self.assertEqual(2, receipt["iterations"])
+        self.assertEqual(
+            (self.repo / "autoresearch-results" / "report.html").resolve(),
+            report_path.resolve(),
+        )
+        self.assertIn("<!doctype html>", report)
+        self.assertIn('http-equiv="Content-Security-Policy"', report)
+        self.assertIn("Metric trajectory", report)
+        self.assertIn("Experiment history", report)
+        self.assertIn('<svg class="metric-chart"', report)
+        self.assertIn('href="logs/0000-baseline-verify.json"', report)
+        self.assertIn('class="event-label discard"', report)
+        self.assertIn('class="event-label keep"', report)
+        self.assertIn("discard &lt;script&gt;alert(1)&lt;/script&gt;", report)
+        self.assertNotIn("<script>alert(1)</script>", report)
+        self.assertNotIn("<script", report)
+        self.assertNotIn("http://", report)
+        self.assertNotIn("https://", report)
+        self.assertEqual(events_before, events_path.read_bytes())
+        self.assertTrue(self.status()["repository"]["consistent"])
 
     def test_guard_failure_discards_improvement(self) -> None:
         self.init("--guard", "python3 guard.py")
@@ -502,6 +589,9 @@ class AutoresearchTest(unittest.TestCase):
             ).stdout
         )
         self.assertEqual("active", resumed["status"])
+        history = self.cli("history", "--repo", str(self.repo)).stdout
+        self.assertIn("blocked", history)
+        self.assertIn("resumed", history)
         archived = json.loads(self.cli("archive", "--repo", str(self.repo)).stdout)
         self.assertEqual("archived", archived["status"])
         self.assertFalse((self.repo / "autoresearch-results" / "run.json").exists())
@@ -522,6 +612,7 @@ class AutoresearchTest(unittest.TestCase):
         )
         self.assertEqual("stopped", result["status"])
         self.assertEqual(2, self.status()["metric"]["current"])
+        self.assertIn("stopped", self.cli("history", "--repo", str(self.repo)).stdout)
 
     def test_background_controller_runs_multiple_real_helper_iterations(self) -> None:
         fake = Path(self.temp.name) / "fake-codex"

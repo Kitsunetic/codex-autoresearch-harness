@@ -15,7 +15,7 @@ Codex supplies the engineering judgment. The bundled control script supplies str
 
 ## Load
 
-- Read `references/workflow.md` for every invocation, including status, stop, and resume.
+- Read `references/workflow.md` for every invocation, including status, history, report, stop, and resume.
 - Read `references/experiment.md` before starting or continuing an active run.
 - Read `references/background.md` only for a background run.
 
@@ -108,6 +108,8 @@ Then call `update_goal(status="blocked")`. A failed hypothesis, difficult bug, o
 
 ## Existing Runs
 
+- History request: run `history --repo <repo>`; use `--format tsv` only for tabular export.
+- HTML report request: run `report --repo <repo>` and return its generated path. Both views validate the complete event history; neither is runtime state.
 - Same foreground goal: validate `status`, resume the matching official Goal, and continue.
 - Background `status`, `stop`, or `resume`: use the corresponding script command. Resume requires a user note or new direction.
 - Different goal: show the current run. Stop a live background run first; for an active foreground run, ask the user to clear its official Goal with `/goal clear`. Then ask before `archive` and initialize the fresh run.

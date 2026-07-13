@@ -12,8 +12,9 @@ SKILL.md
 ├── references/experiment.md
 └── references/background.md
 
-scripts/autoresearch.py       CLI and detached controller
-scripts/autoresearch_core.py  strict schema, Git, commands, and events
+scripts/autoresearch.py         CLI and detached controller
+scripts/autoresearch_core.py    strict schema, Git, commands, and events
+scripts/autoresearch_report.py  read-only terminal, TSV, and HTML views
 ```
 
 The user documentation is [README.md](README.md), [Installation](docs/INSTALL.md), [User Guide](docs/GUIDE.md), [Examples](docs/EXAMPLES.md), and synchronized translations under `docs/i18n/`.
@@ -25,7 +26,7 @@ The user documentation is [README.md](README.md), [Installation](docs/INSTALL.md
 - Immutable run configuration: `autoresearch-results/run.json`
 - Runtime state and audit: `autoresearch-results/events.jsonl`
 
-Do not introduce a second state snapshot or reconstruct events from logs. Logs explain failures; they are not state.
+Do not introduce a second state snapshot or reconstruct events from logs. Logs explain failures; they are not state. Generated history and reports are disposable projections of validated events.
 
 ## Design Rules
 

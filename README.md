@@ -121,8 +121,44 @@ Run artifacts live in `autoresearch-results/` and stay uncommitted:
 | `logs/` | Full metric, guard, and background worker output |
 | `runtime.json` | Background process state |
 | `runtime.log` | Background controller lifecycle events |
+| `report.html` | Optional, regenerated visual snapshot |
 
 `events.jsonl` is the state history. Missing, malformed, contradictory, or partial state is an error; the skill never guesses a result from old files or conversational memory.
+
+## Review Results
+
+Ask the skill to show the validated experiment history:
+
+```text
+$codex-autoresearch show experiment history
+```
+
+```text
+Codex Autoresearch
+Run: 0a516883  Status: complete  Mode: foreground
+Metric: error_count  2 -> 0  Target: 0 (lower is better)
+
+SEQ  ITER  EVENT     PREVIOUS  TRIAL  RETAINED  DESCRIPTION
+---  ----  --------  --------  -----  --------  ------------------------------------
+  0     0  baseline         -      -         2  Initial measurement
+  1     1  discard          2      3         2  Broaden parser fallback
+  2     2  keep             2      1         1  Fix nested parser branch
+  3     3  keep             1      0         0  Remove final parser error
+  4     3  complete         -      -         0  retained metric satisfies the target
+```
+
+The same validated events can be exported as TSV or rendered as a self-contained static report:
+
+```text
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+The report is written to `autoresearch-results/report.html`. It is a replaceable snapshot, not runtime state.
+
+<p align="center">
+  <img src="image/autoresearch-report.png" width="900" alt="Codex Autoresearch HTML report showing metric trajectory and experiment history">
+</p>
 
 ## Safety Model
 

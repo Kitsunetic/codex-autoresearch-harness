@@ -68,6 +68,16 @@ Arquivos não commitados ficam em `autoresearch-results/`:
 
 `events.jsonl` é a única fonte de estado. Dados ausentes, corrompidos ou contraditórios causam erro explícito e nunca são reconstruídos por suposição.
 
+## Histórico e relatório
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+A tabela e o relatório HTML são gerados a partir de eventos validados. O snapshot HTML fica em `autoresearch-results/report.html` e não participa do estado nem da recuperação.
+
 ## Garantias
 
 - Uma nova execução exige uma branch Git limpa e nomeada.

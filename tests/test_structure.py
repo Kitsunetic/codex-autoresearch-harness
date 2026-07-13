@@ -22,7 +22,10 @@ class StructureTest(unittest.TestCase):
 
     def test_runtime_surface_is_intentionally_small(self) -> None:
         scripts = {path.name for path in (ROOT / "scripts").glob("autoresearch*.py")}
-        self.assertEqual({"autoresearch.py", "autoresearch_core.py"}, scripts)
+        self.assertEqual(
+            {"autoresearch.py", "autoresearch_core.py", "autoresearch_report.py"},
+            scripts,
+        )
 
     def test_skill_frontmatter_and_product_metadata(self) -> None:
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")

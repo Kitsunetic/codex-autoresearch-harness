@@ -137,6 +137,20 @@ If blocked, provide a direction with resume:
 $codex-autoresearch resume; generated files are authoritative, do not edit them
 ```
 
+## Review A Run
+
+```text
+$codex-autoresearch show experiment history
+```
+
+The history table includes baselines, retained experiments, discarded trials, terminal events, metrics, and descriptions. For a shareable visual snapshot:
+
+```text
+$codex-autoresearch generate an HTML report
+```
+
+The report is regenerated from validated events and does not participate in resume or recovery.
+
 ## Metric Script Patterns
 
 Scalar final line:

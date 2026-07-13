@@ -68,6 +68,16 @@ Los archivos no confirmados viven en `autoresearch-results/`:
 
 `events.jsonl` es la única fuente del estado. Los datos ausentes, dañados o contradictorios producen un error explícito; nunca se reconstruyen por aproximación.
 
+## Historial e informe
+
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
+```
+
+La tabla y el informe HTML se generan desde eventos validados. La instantánea HTML se guarda en `autoresearch-results/report.html` y no forma parte del estado ni de la recuperación.
+
 ## Garantías
 
 - Una ejecución nueva exige una rama Git limpia y con nombre.

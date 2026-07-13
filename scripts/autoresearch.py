@@ -725,6 +725,9 @@ def finish_iteration(args: argparse.Namespace) -> dict[str, Any]:
 def block_run(args: argparse.Namespace) -> dict[str, Any]:
     repo = Path(args.repo).expanduser().resolve()
     paths, run, events, state = load_context(repo)
+    reason = args.reason.strip()
+    if not reason:
+        raise AutoresearchError("--reason cannot be empty")
     if state.status != "active":
         raise AutoresearchError(f"Cannot block a run whose status is {state.status}")
     require_clean_repo(repo, expected_head=state.head, expected_branch=run["branch"])
@@ -733,7 +736,7 @@ def block_run(args: argparse.Namespace) -> dict[str, Any]:
         run,
         events,
         event="blocked",
-        reason=args.reason.strip(),
+        reason=reason,
         head=state.head,
         metric=decimal_json(state.metric),
     )
@@ -856,6 +859,12 @@ def worker_prompt(repo: Path, script: Path, run: dict[str, Any], state: RunState
     python_command = shlex.quote(sys.executable)
     script_command = shlex.quote(str(script))
     repo_argument = shlex.quote(str(repo))
+    metric_parser = (
+        "final non-empty scalar line"
+        if run["metric"]["json_key"] is None
+        else f"JSON key {run['metric']['json_key']}"
+    )
+    guard = run["guard"] or "none"
     return f"""You are one background iteration worker for a codex-autoresearch run.
 
 Repository: {repo}
@@ -863,6 +872,8 @@ Control script: {script}
 Goal: {run['goal']}
 Current metric: {decimal_json(state.metric)}
 Target: {run['target']} ({run['metric']['direction']} is better)
+Verify command: {run['metric']['command']} ({metric_parser})
+Guard command: {guard}
 Allowed paths: {', '.join(run['scope'])}
 
 Rules:
@@ -1168,30 +1179,38 @@ def controller_entry(repo: Path) -> int:
 
 
 def fail_controller_start(
-    repo: Path,
+    paths: Paths,
+    run: dict[str, Any],
     process: subprocess.Popen[Any],
+    started_at: str,
     reason: str,
 ) -> NoReturn:
-    paths, run, _, _ = load_context(repo)
-    termination_error: str | None = None
+    failures: list[str] = []
     if process.poll() is None:
         try:
             terminate_process_tree(process)
         except Exception as exc:
-            termination_error = str(exc)
-            reason += f"; controller process cleanup failed: {exc}"
-    runtime_event(
-        paths,
-        "controller_start_failed",
-        pid=process.pid,
-        returncode=process.returncode,
-        reason=reason,
-        termination_error=termination_error,
-    )
+            failures.append(f"controller process cleanup failed: {exc}")
+    failure_reason = reason
+    if failures:
+        failure_reason += "; " + "; ".join(failures)
+
     try:
-        record_controller_error(repo, reason, paths.runtime_log)
-        runtime = load_runtime(paths, run_id=run["run_id"])
-        started_at = utc_now() if runtime is None else runtime["started_at"]
+        runtime_event(
+            paths,
+            "controller_start_failed",
+            pid=process.pid,
+            returncode=process.returncode,
+            reason=failure_reason,
+            cleanup_failed=bool(failures),
+        )
+    except Exception as exc:
+        failures.append(f"runtime log write failed: {exc}")
+    try:
+        record_controller_error(paths.repo, failure_reason, paths.runtime_log)
+    except Exception as exc:
+        failures.append(f"event error record failed: {exc}")
+    try:
         write_runtime(
             paths,
             run,
@@ -1201,22 +1220,29 @@ def fail_controller_start(
             started_at=started_at,
         )
     except Exception as exc:
-        runtime_event(
-            paths,
-            "controller_start_error_record_failed",
-            error_type=type(exc).__name__,
-            message=str(exc),
-            traceback=traceback.format_exc(),
-        )
-        raise AutoresearchError(
-            f"{reason}; failed to record controller startup failure: {exc}. "
-            f"Inspect {paths.runtime_log}"
-        ) from exc
+        failures.append(f"runtime state write failed: {exc}")
+    if failures:
+        failure_reason = reason + "; " + "; ".join(failures)
+    raise AutoresearchError(f"{failure_reason}. Inspect {paths.runtime_log}")
+
+
+def fail_controller_spawn(paths: Paths, reason: str) -> NoReturn:
+    failures: list[str] = []
+    try:
+        runtime_event(paths, "controller_spawn_failed", reason=reason)
+    except Exception as exc:
+        failures.append(f"runtime log write failed: {exc}")
+    try:
+        record_controller_error(paths.repo, reason, paths.runtime_log)
+    except Exception as exc:
+        failures.append(f"event error record failed: {exc}")
+    if failures:
+        reason += "; " + "; ".join(failures)
     raise AutoresearchError(f"{reason}. Inspect {paths.runtime_log}")
 
 
 def spawn_controller(repo: Path) -> dict[str, Any]:
-    paths, run, events, state = load_context(repo)
+    paths, run, _, state = load_context(repo)
     if run["mode"] != "background":
         raise AutoresearchError("Only background runs can start a detached controller")
     if state.status != "active":
@@ -1246,7 +1272,10 @@ def spawn_controller(repo: Path) -> dict[str, Any]:
         popen_kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         popen_kwargs["start_new_session"] = True
-    process = subprocess.Popen(command, **popen_kwargs)
+    try:
+        process = subprocess.Popen(command, **popen_kwargs)
+    except OSError as exc:
+        fail_controller_spawn(paths, f"Failed to start background controller: {exc}")
     started_at = utc_now()
     try:
         write_runtime(
@@ -1259,18 +1288,31 @@ def spawn_controller(repo: Path) -> dict[str, Any]:
         )
     except Exception as exc:
         fail_controller_start(
-            repo,
+            paths,
+            run,
             process,
+            started_at,
             f"Failed to write controller startup state: {exc}",
         )
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        _, _, _, current_state = load_context(repo)
+        try:
+            _, _, _, current_state = load_context(repo)
+        except Exception as exc:
+            fail_controller_start(
+                paths,
+                run,
+                process,
+                started_at,
+                f"Failed to validate controller startup state: {exc}",
+            )
         if current_state.status != "active":
             if current_state.status == "error":
                 fail_controller_start(
-                    repo,
+                    paths,
+                    run,
                     process,
+                    started_at,
                     "Background controller failed during startup",
                 )
             return {
@@ -1281,12 +1323,31 @@ def spawn_controller(repo: Path) -> dict[str, Any]:
             }
         if process.poll() is not None:
             fail_controller_start(
-                repo,
+                paths,
+                run,
                 process,
+                started_at,
                 f"Background controller exited during startup with code {process.returncode}",
             )
-        runtime = load_runtime(paths, run_id=run["run_id"])
+        try:
+            runtime = load_runtime(paths, run_id=run["run_id"])
+        except Exception as exc:
+            fail_controller_start(
+                paths,
+                run,
+                process,
+                started_at,
+                f"Failed to validate controller runtime state: {exc}",
+            )
         if runtime and runtime["controller_pid"] == process.pid and runtime["state"] == "running":
+            if process.poll() is not None:
+                fail_controller_start(
+                    paths,
+                    run,
+                    process,
+                    started_at,
+                    f"Background controller exited during startup with code {process.returncode}",
+                )
             return {
                 "status": "running",
                 "controller_pid": process.pid,
@@ -1295,8 +1356,10 @@ def spawn_controller(repo: Path) -> dict[str, Any]:
             }
         time.sleep(0.05)
     fail_controller_start(
-        repo,
+        paths,
+        run,
         process,
+        started_at,
         "Background controller did not become ready within 5 seconds",
     )
 
@@ -1358,6 +1421,9 @@ def stop_background(args: argparse.Namespace) -> dict[str, Any]:
 def resume_run(args: argparse.Namespace) -> dict[str, Any]:
     repo = Path(args.repo).expanduser().resolve()
     paths, run, events, state = load_context(repo)
+    note = args.note.strip()
+    if not note:
+        raise AutoresearchError("--note cannot be empty")
     if state.status == "complete":
         raise AutoresearchError("A completed run cannot be resumed; archive it and start a new goal")
     if run["max_iterations"] is not None and state.iterations >= run["max_iterations"]:
@@ -1397,7 +1463,7 @@ def resume_run(args: argparse.Namespace) -> dict[str, Any]:
         run,
         events,
         event="resumed",
-        note=args.note.strip(),
+        note=note,
         head=state.head,
         metric=decimal_json(state.metric),
     )

@@ -9,10 +9,13 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "autoresearch.py"
+sys.path.insert(0, str(ROOT / "scripts"))
+import autoresearch as autoresearch_runtime
 
 
 class AutoresearchTest(unittest.TestCase):
@@ -707,6 +710,76 @@ class AutoresearchTest(unittest.TestCase):
         runtime_log = Path(status["runtime_log"]).read_text(encoding="utf-8")
         self.assertIn("worker_cleanup_after_controller_error", runtime_log)
         self.assertIn("Invalid JSON", status["last_event"]["reason"])
+
+    def test_controller_start_failure_terminates_before_state_diagnostics(self) -> None:
+        self.init()
+        paths, run, _, _ = autoresearch_runtime.load_context(self.repo)
+        paths.events.write_text("{", encoding="utf-8")
+        process_kwargs: dict[str, object] = {}
+        if os.name == "nt":
+            process_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            process_kwargs["start_new_session"] = True
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            **process_kwargs,
+        )
+        try:
+            with self.assertRaises(autoresearch_runtime.AutoresearchError) as raised:
+                autoresearch_runtime.fail_controller_start(
+                    paths,
+                    run,
+                    process,
+                    "2026-01-01T00:00:00Z",
+                    "startup validation failed",
+                )
+            process.wait(timeout=5)
+            self.assertIn("event error record failed", str(raised.exception))
+            runtime = json.loads(paths.runtime.read_text(encoding="utf-8"))
+            self.assertEqual("error", runtime["state"])
+            self.assertFalse(autoresearch_runtime.process_alive(process.pid))
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+
+    def test_controller_spawn_failure_records_terminal_error(self) -> None:
+        self.init()
+        run_path = self.repo / "autoresearch-results" / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run["mode"] = "background"
+        run["background"] = {
+            "execution_policy": "danger-full-access",
+            "codex_bin": sys.executable,
+            "model": None,
+        }
+        run_path.write_text(json.dumps(run), encoding="utf-8")
+        real_popen = subprocess.Popen
+
+        def fail_controller_only(command: object, *args: object, **kwargs: object) -> subprocess.Popen:
+            if (
+                isinstance(command, list)
+                and len(command) >= 3
+                and command[0] == sys.executable
+                and command[1] == str(SCRIPT)
+                and command[2] == "_controller"
+            ):
+                raise OSError("process limit reached")
+            return real_popen(command, *args, **kwargs)
+
+        with mock.patch.object(
+            autoresearch_runtime.subprocess,
+            "Popen",
+            side_effect=fail_controller_only,
+        ):
+            with self.assertRaises(autoresearch_runtime.AutoresearchError) as raised:
+                autoresearch_runtime.spawn_controller(self.repo)
+        self.assertIn("process limit reached", str(raised.exception))
+        status = self.status()
+        self.assertEqual("error", status["status"])
+        self.assertIn("Failed to start background controller", status["last_event"]["reason"])
+        runtime_log = Path(status["runtime_log"]).read_text(encoding="utf-8")
+        self.assertIn("controller_spawn_failed", runtime_log)
 
     def test_stop_accepts_run_that_completes_during_stop_race(self) -> None:
         self.init()

@@ -6,7 +6,7 @@ Read this before any active foreground iteration. Background workers receive the
 
 `autoresearch-results/run.json` is immutable run configuration. `autoresearch-results/events.jsonl` is the append-only state history. Current status is derived by validating every event in order; no cache or conversation summary overrides it.
 
-Never edit either file manually. Use only `scripts/autoresearch.py`.
+Never edit either file manually. Use only `<skill-root>/scripts/autoresearch.py`.
 
 ## One Iteration
 

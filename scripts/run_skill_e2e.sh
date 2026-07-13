@@ -122,7 +122,17 @@ run_foreground_smoke() {
     --metric-key failure_count \
     --target 0 >/dev/null
 
-  perl -0pi -e 's/return a - b/return a + b/' "$repo/src/math_utils.py"
+  python3 - "$repo/src/math_utils.py" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+old = "return a - b"
+if text.count(old) != 1:
+    raise SystemExit(f"expected exactly one fixture bug in {path}")
+path.write_text(text.replace(old, "return a + b"), encoding="utf-8")
+PY
   python3 "$control" finish --repo "$repo" --description "correct integer addition" >/dev/null
   assert_status "$control" "$repo" complete
   python3 -m unittest discover -s "$repo/tests" -q

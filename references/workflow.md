@@ -60,7 +60,9 @@ Always trust validated events, not conversational memory.
 - `active` foreground: continue in the current/resumed Goal task.
 - `active` background with runtime `running`: report status; do not launch another controller.
 - `active` background with runtime `orphaned`: report whether the recorded worker is still alive. Never resume or archive while an orphaned worker is alive. Once no worker remains, `stop` can close the event state before resume.
-- `blocked`, `error`, or `stopped`: inspect the exact reason and logs. Resume only after the cause is addressed, with a note describing what changed.
+- `blocked`: after the external cause changes, run `resume --repo <repo> --note <what-changed>`. A foreground run then continues through the same official Goal; a background run starts a new controller.
+- `error`: resume with the same command only when status reports a consistent repository and no unreverted trial. Otherwise recover Git manually and archive the run.
+- `stopped`: a user-stopped background run may resume with a note. A run stopped by its iteration limit must be archived and started again with a newly confirmed limit.
 - `complete`: report the result; archive before a different goal.
 
 If the user wants a different goal, stop a live background controller first. For an active foreground run, ask the user to clear the old official Goal with `/goal clear`; the control script cannot own TUI Goal state. Then ask before running `archive`. Archiving is explicit because it changes the active run, though it preserves all prior artifacts.

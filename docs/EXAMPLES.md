@@ -73,6 +73,24 @@ Guard: python3 -m pytest tests/search -q
 
 Stabilize fixtures, warmup, sample count, and machine load before launch. A noisy benchmark produces untrustworthy keeps and discards.
 
+## Optimize a Noisy Multi-Metric Scheduler
+
+```text
+$codex-autoresearch
+Raise judge_score to at least 0.80 while keeping hard schedule conflicts at zero.
+```
+
+```text
+Scope: src/scheduler, tests/cases
+Verify: python3 scripts/schedule_metrics.py
+Metric parser: JSON key judge_score
+Direction: higher
+Target: 0.80
+Guard: python3 scripts/check_schedule_constraints.py
+```
+
+The verify command may emit other numeric fields for diagnosis, but only `judge_score` drives keep or discard. The guard enforces feasibility. Fix seeds and representative cases before optimizing so noise does not decide which experiments survive.
+
 ## Reduce Binary Size
 
 ```text

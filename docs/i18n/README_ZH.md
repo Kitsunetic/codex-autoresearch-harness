@@ -1,220 +1,87 @@
-<p align="center">
-  <img src="../../image/banner.png" width="700" alt="Codex Autoresearch">
-</p>
+# Codex Autoresearch
 
-<h2 align="center"><b>瞄准。迭代。抵达。</b></h2>
+[English](../../README.md) | **中文**
 
-<p align="center">
-  <i>Codex 的自主目标驱动实验引擎。</i>
-</p>
+面向 Codex 的自主、可度量实验循环。
 
-<p align="center">
-  <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
-  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
-  <a href="../../LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
-</p>
+告诉 Codex 你想达到的数值目标。它会先扫描仓库并向你确认，然后不断执行：修改一个点、验证、保留改进、回滚失败，直到达到目标。
 
-<p align="center">
-  <a href="../../README.md">English</a> ·
-  <b>🇨🇳 中文</b> ·
-  <a href="README_JA.md">🇯🇵 日本語</a> ·
-  <a href="README_KO.md">🇰🇷 한국어</a> ·
-  <a href="README_FR.md">🇫🇷 Français</a> ·
-  <a href="README_DE.md">🇩🇪 Deutsch</a> ·
-  <a href="README_ES.md">🇪🇸 Español</a> ·
-  <a href="README_PT.md">🇧🇷 Português</a> ·
-  <a href="README_RU.md">🇷🇺 Русский</a>
-</p>
+适用于测试失败数、覆盖率、类型错误、告警数、延迟、产物体积、可复现的安全问题，以及任何可以被命令稳定测量的结果。
 
----
+## 快速开始
 
-核心思路：告诉 Codex 你想改善什么，然后走开。它会修改代码、验证结果、保留或丢弃，然后重复。你回来时会看到一份实验日志和一个更好的代码库。
-
-灵感来自 [Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch)，从 ML 推广到一切可以机械验证的目标：测试覆盖率、类型错误、延迟、lint 警告、安全漏洞、发布就绪检查 — 只要一条命令能判断是否改善了，循环就能迭代。
-
-## 快速上手
-
-> [!IMPORTANT]
-> 推荐用 Full Access 启动 Codex：
->
-> ```bash
-> codex --dangerously-bypass-approvals-and-sandbox
-> ```
->
-> 开始 autoresearch 前先用这个命令启动，foreground 和 background 体验最完整。
+在 Codex 中安装：
 
 ```text
-# 在 Codex 中安装（推荐）
 $skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-在项目中打开：
+建议用 Full Access 打开一个干净的 Git 仓库：
 
-```
-你:    $codex-autoresearch
-       把 TypeScript 代码里所有的 any 类型都消除掉
-
-Codex: 在 src/**/*.ts 中找到 47 个 `any`。
-       Results 目录：./autoresearch-results/
-       指标：any 出现次数（当前 47），方向：降低
-       验证：grep 计数 + tsc --noEmit 守护
-       运行模式：foreground 还是 background？
-
-你:    Background，go。跑一晚上。
-
-Codex: 开始后台运行 -- 基线：47。持续迭代中。
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-后台运行请从可信的 **Full Access** Codex 会话启动。
+然后调用：
 
-改善累积，失败回滚，全程记录。
-
-手动复制、symlink、用户级安装方式见 [INSTALL.md](../INSTALL.md)。完整操作手册见 [GUIDE.md](../GUIDE.md)。
-
-## 工作原理
-
-```
-你说一句话  →  Codex 扫描并确认  →  你说 "go"
-                                       |
-                          +------------+------------+
-                          |                         |
-                     foreground                background
-                    (当前会话)               (后台，可以过夜)
-                          |                         |
-                          +------------+------------+
-                                       |
-                                       v
-                             +-------------------+
-                             |     核心循环       |
-                             |                   |
-                             |  改一个地方       |
-                             |  trial commit     |
-                             |  跑验证           |
-                             |  改善了？保留     |
-                             |  变差了？回滚     |
-                             |  记录结果         |
-                             |  重复             |
-                             +-------------------+
+```text
+$codex-autoresearch 把 `python3 scripts/score.py` 的 error_count 降到 0
 ```
 
-就这么简单。你二选一：foreground 在当前会话里跑，background 交给后台进程让你去睡觉。同一个循环，但不能同时跑。
+Codex 会在首次写入前确认：目标、可修改范围、当前值、目标值、指标命令、可选 guard，以及 foreground 或 background。
 
-## 你说什么 vs 发生什么
+## 工作方式
 
-| 你说的话 | 发生了什么 |
-|---------|-----------|
-| "提升我的测试覆盖率" | 持续迭代直到目标达成或被中断 |
-| "修复那 12 个失败的测试" | 逐个修复直到全部通过 |
-| "为什么 API 返回 503？" | 用可证伪的假设追踪根因 |
-| "这段代码安全吗？" | STRIDE + OWASP 审计，每个发现都有代码证据 |
-| "准备发布" | 验证就绪状态，生成检查清单，门控发布 |
-| "我想优化但不知道该测量什么" | 分析仓库，建议指标，生成配置 |
-
-在幕后，Codex 将你的话映射到 7 个模式之一（loop、plan、debug、fix、security、ship、exec）。你不需要选择模式。
-
-## Codex 自动推断的内容
-
-你不需要写配置。Codex 从你的话和仓库中推断一切：
-
-| 它需要什么 | 如何获取 | 示例 |
-|-----------|---------|------|
-| 目标 | 你说的话 | "消除所有 any 类型" |
-| 范围 | 扫描仓库结构 | `src/**/*.ts` |
-| 指标 | 基于目标 + 工具链提出 | any 计数（当前：47） |
-| 方向 | 从 "改善" / "减少" / "消除" 推断 | 降低 |
-| 验证命令 | 匹配仓库工具链 | `grep` 计数 + `tsc --noEmit` |
-| 守护 | 建议一个基线已通过的回归检查 | `npm test` |
-
-开始之前，Codex 总是展示它发现的内容并请求确认。然后你选 foreground 或 background，说 "go"。
-默认情况下，Results 目录应留在当前启动上下文里：如果你是在 git 仓库内启动 Codex，该仓库根目录就是默认的 workspace root；如果你是在 git 仓库外启动 Codex，当前启动目录就是默认的 workspace root。除非你明确确认要使用更大的多仓库 workspace，否则 Codex 不应该静默把它上推到父目录。启动前的确认摘要也应始终展示最终选择的 Results 目录。
-
-## 卡住时怎么办
-
-循环不会盲目重试，而是逐级升级：
-
-| 触发条件 | 动作 |
-|---------|------|
-| 连续 3 次失败 | **REFINE** -- 在当前策略内调整 |
-| 连续 5 次失败 | **PIVOT** -- 尝试根本不同的方法 |
-| 2 次 PIVOT 无进展 | **Web 搜索** -- 寻找外部解决方案 |
-| 3 次 PIVOT 无进展 | **停止** -- 报告需要人工介入 |
-
-一次成功即重置所有计数器。
-
-## 结果日志
-
-每次迭代记录在 `autoresearch-results/results.tsv` 中：
-
-```
-iteration  commit   metric  delta   status    description
-0          a1b2c3d  47      0       baseline  initial any count
-1          b2c3d4e  41      -6      keep      replace any in auth module
-2          -        49      +8      discard   generic wrapper introduced new anys
-3          d4e5f6g  38      -3      keep      type-narrow API response handlers
+```text
+读取证据 -> 修改一个明确的假设 -> 提交并测量
+                                      |
+                         改进且 guard 通过：保留
+                         否则：git revert
+                                      |
+                              记录并继续
 ```
 
-失败的实验从 git 回滚，但保留在日志中。日志才是真正的审计记录，而 `autoresearch-results/state.json` 是恢复快照。
+Codex 负责分析和改代码；控制脚本负责 Git 边界、测量、回滚和状态。
 
-## 更多功能
+## 前台与后台
 
-以下内容在 [GUIDE.md](../GUIDE.md) 中详细介绍：
+| | Foreground | Background |
+|---|---|---|
+| 运行位置 | 当前 Codex 任务 | 独立 controller |
+| 持续运行 | Codex 官方 Goal | 每轮一个 `codex exec` worker |
+| 适合 | 实时观察和指导 | 长时间或通宵运行 |
+| 控制 | Goal 的暂停/恢复 | 用 `$codex-autoresearch` 查询、停止、恢复 |
 
-- **跨运行学习** -- 过去运行的经验会影响未来的假设生成
-- **并行实验** -- 通过 git worktree 同时测试最多 3 个假设
-- **会话恢复** -- 中断的运行从最后一致状态继续
-- **CI/CD 模式** (`exec`) -- 非交互，JSON 输出，用于自动化流水线
-- **双门验证** -- 分开的 verify（改善了吗？）和 guard（其他东西没坏吧？）
+Foreground 由 Codex 官方 Goal 持续运行。Background 不创建 Goal，由 controller 负责持续运行。安装不会修改 Codex 配置。
 
-## FAQ
+## 结果文件
 
-**每次改动都很小，能不能尝试更大的改进？**
-默认情况下循环倾向于小步可验证的改动 — 这是设计如此。但它可以做更大的事：在 prompt 里描述一个更大的假设（比如"尝试把 attention 机制换成 linear attention，跑完整 eval"），它会把这当作一个完整实验来验证。最佳用法是人来定研究方向，模型来做高强度执行和分析。
+所有文件位于未提交的 `autoresearch-results/`：
 
-**这个更适合工程优化还是科研？**
-当目标和指标明确时它最强 — 提升覆盖率、减少错误、降低延迟。如果研究方向本身还不确定，先用 `plan` 模式探索，确定要测量什么之后再切到 `loop`。把它理解为人机协作：你提供判断，它提供迭代速度。
+| 文件 | 用途 |
+|---|---|
+| `run.json` | 不可变的已确认配置 |
+| `events.jsonl` | 仅追加的基线、实验和终止记录 |
+| `logs/` | 完整的指标、guard 和 worker 输出 |
+| `runtime.json` | 后台进程状态 |
+| `runtime.log` | 后台 controller 事件 |
 
-**怎么停止？** Foreground：中断 Codex。Background：`$codex-autoresearch` 然后要求停止。
+`events.jsonl` 是运行状态的唯一事实来源。缺失、损坏或矛盾的状态会直接报错，不会从旧文件或对话内容里猜测恢复。
 
-**中断后能恢复吗？** 能。自动从 `autoresearch-results/state.json` 恢复。
+## 可靠性边界
 
-**如何在 CI 中使用？** `Mode: exec` 配合 `codex exec`。所有配置预先提供，JSON 输出，退出码 0/1/2。
+- 新运行要求一个干净、具名的 Git 分支。
+- 一次运行只管理一个仓库、一个主指标和一个目标值。
+- 每个实验都会创建提交；失败实验使用 `git revert`。
+- 超出范围的修改、分支或 HEAD 漂移、错误指标、命令失败、超时和回滚失败都会停止运行并给出日志路径。
+- 只有保留指标达到已确认目标时，状态才会变为 `complete`。
 
-## 文档
+## 要求
 
-| 文档 | 内容 |
-|-----|------|
-| [INSTALL.md](../INSTALL.md) | skill installer、手动复制、用户级安装和开发 symlink |
-| [GUIDE.md](../GUIDE.md) | 完整操作手册：模式、配置字段、安全模型、高级用法 |
-| [EXAMPLES.md](../EXAMPLES.md) | 按领域分类的配方：覆盖率、性能、类型、安全等 |
+- 支持 Skills 和 Goals 的当前 Codex CLI
+- Python 3.11+
+- Git
 
-## 致谢
+安装方式见[安装文档](../INSTALL.md)，完整行为见[用户指南](../GUIDE.md)，常用场景见[示例](../EXAMPLES.md)。
 
-基于 [Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch) 的理念构建。Codex skills 平台由 [OpenAI](https://openai.com) 提供。
-
-## Citation
-
-如果你在工作中使用 Codex Autoresearch，请按如下方式引用：
-
-```bibtex
-@misc{codex-autoresearch,
-  author = {Li, Linxiao},
-  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
-  year = {2026},
-  publisher = {GitHub},
-  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
-}
-```
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
- </picture>
-</a>
-
-## 许可证
-
-MIT -- 见 [LICENSE](../../LICENSE)。
+MIT License。项目灵感来自 [Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch)。

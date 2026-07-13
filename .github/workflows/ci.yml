@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - dev
-      - master
+      - main
   pull_request:
 
 jobs:
@@ -41,8 +41,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run multi-repo smoke
-        run: bash scripts/run_skill_e2e.sh multi-repo-smoke --clean
+      - name: Run foreground smoke
+        run: bash scripts/run_skill_e2e.sh foreground-smoke --clean
 
-      - name: Run runtime smoke
+      - name: Run background runtime smoke
         run: bash scripts/run_skill_e2e.sh runtime-smoke --clean

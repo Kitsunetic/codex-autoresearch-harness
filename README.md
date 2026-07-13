@@ -5,7 +5,7 @@
 <h2 align="center"><b>Aim. Iterate. Arrive.</b></h2>
 
 <p align="center">
-  <i>Autonomous goal-driven experimentation for Codex.</i>
+  <i>Autonomous, measurable experimentation for Codex.</i>
 </p>
 
 <p align="center">
@@ -16,185 +16,175 @@
 
 <p align="center">
   <b>English</b> ·
-  <a href="docs/i18n/README_ZH.md">🇨🇳 中文</a> ·
-  <a href="docs/i18n/README_JA.md">🇯🇵 日本語</a> ·
-  <a href="docs/i18n/README_KO.md">🇰🇷 한국어</a> ·
-  <a href="docs/i18n/README_FR.md">🇫🇷 Français</a> ·
-  <a href="docs/i18n/README_DE.md">🇩🇪 Deutsch</a> ·
-  <a href="docs/i18n/README_ES.md">🇪🇸 Español</a> ·
-  <a href="docs/i18n/README_PT.md">🇧🇷 Português</a> ·
-  <a href="docs/i18n/README_RU.md">🇷🇺 Русский</a>
+  <a href="docs/i18n/README_ZH.md">中文</a> ·
+  <a href="docs/i18n/README_JA.md">日本語</a> ·
+  <a href="docs/i18n/README_KO.md">한국어</a> ·
+  <a href="docs/i18n/README_FR.md">Français</a> ·
+  <a href="docs/i18n/README_DE.md">Deutsch</a> ·
+  <a href="docs/i18n/README_ES.md">Español</a> ·
+  <a href="docs/i18n/README_PT.md">Português</a> ·
+  <a href="docs/i18n/README_RU.md">Русский</a>
 </p>
 
 ---
 
-The idea: tell Codex what you want to improve, then walk away. It modifies your code, verifies the result, keeps or discards, and repeats. You come back to a log of experiments and a better codebase.
+Tell Codex what measurable result you want. Codex inspects the repository, confirms the experiment with you, changes one thing, verifies it, keeps improvements, reverts failures, and repeats until the target is reached.
 
-Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch), generalized beyond ML to anything you can verify mechanically: test coverage, type errors, latency, lint warnings, security findings, release readiness — if a command can tell whether it improved, the loop can iterate on it.
+Autoresearch works for test failures, coverage, type errors, warnings, latency, binary size, reproducible security findings, and any other outcome a command can measure.
 
 ## Quick Start
 
-> [!IMPORTANT]
-> Start Codex with Full Access:
->
-> ```bash
-> codex --dangerously-bypass-approvals-and-sandbox
-> ```
->
-> Use this before starting autoresearch for the smoothest foreground and background experience.
-
-Install in Codex:
+Install from Codex:
 
 ```text
 $skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-Open your project and go:
+Open a clean Git repository with Full Access:
 
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
 ```
+
+Then invoke the skill:
+
+```text
 You:   $codex-autoresearch
-       I want to get rid of all the `any` types in my TypeScript code
+       Reduce `python3 scripts/score.py` error_count to 0.
 
-Codex: I found 47 `any` occurrences across src/**/*.ts.
-       Results directory: ./autoresearch-results/
-       Metric: `any` count (current: 47), direction: lower
-       Verify: grep count + tsc --noEmit as guard
-       Run mode: foreground or background?
+Codex: Baseline: 5
+       Target: 0 (lower is better)
+       Scope: src/
+       Verify: python3 scripts/score.py, JSON key error_count
+       Guard: python3 -m pytest -q
+       Run in foreground or background?
 
-You:   Background, go. Run overnight.
-
-Codex: Starting background run — baseline: 47. Iterating.
+You:   Background. Go.
 ```
 
-Each improvement stacks. Each failure reverts. Everything is logged.
+Codex launches the confirmed run. No Codex configuration changes or special prompt syntax are required.
 
-For background runs, start Codex from a trusted **Full Access** session.
+See [Installation](docs/INSTALL.md) for manual and development installs.
 
-See [INSTALL.md](docs/INSTALL.md) for skill installer, manual copy, user-scope, and development symlink options. See [GUIDE.md](docs/GUIDE.md) for the full manual.
+## The Loop
 
-## How It Works
-
-```
-You say one sentence  →  Codex scans & confirms  →  You say "go"
-                                                        |
-                                         +--------------+--------------+
-                                         |                             |
-                                    foreground                    background
-                                  (current session)            (detached, overnight)
-                                         |                             |
-                                         +--------------+--------------+
-                                                        |
-                                                        v
-                                              +-------------------+
-                                              |    The Loop       |
-                                              |                   |
-                                              |  modify one thing |
-                                              |  trial commit     |
-                                              |  run verify       |
-                                              |  improved? keep   |
-                                              |  worse? revert    |
-                                              |  log the result   |
-                                              |  repeat           |
-                                              +-------------------+
+```text
+inspect evidence
+      |
+change one focused thing
+      |
+commit and measure
+      |
+      +-- improved + guard passes --> keep
+      |
+      +-- otherwise ---------------> revert
+      |
+append an audit event
+      |
+repeat until target
 ```
 
-That's it. You pick one: foreground keeps the loop in your current session, background hands it off to a detached process so you can sleep. Same loop either way, but they don't run at the same time.
+The control script owns commits, verification, rollback, and state. Codex owns the hypotheses and code changes.
 
-## What You Say vs What Happens
+## Foreground And Background
 
-| You say | What happens |
-|---------|-------------|
-| "Improve my test coverage" | Iterates until target or interrupted |
-| "Fix the 12 failing tests" | Repairs one by one until zero remain |
-| "Why is the API returning 503?" | Hunts root cause with falsifiable hypotheses |
-| "Is this code secure?" | STRIDE + OWASP audit, every finding backed by code evidence |
-| "Ship it" | Verifies readiness, generates checklist, gates release |
-| "I want to optimize but don't know what" | Analyzes repo, suggests metrics, generates config |
+| | Foreground | Background |
+|---|---|---|
+| Runs in | Current Codex task | Detached controller |
+| Continuation | Official Codex Goal | One `codex exec` worker per iteration |
+| Best for | Watching and steering live | Long or overnight runs |
+| Control | Codex Goal pause/resume | Ask `$codex-autoresearch` for status, stop, or resume |
 
-Behind the scenes, Codex maps your sentence to one of 7 modes (loop, plan, debug, fix, security, ship, exec). You never need to pick one.
+Foreground and background use the same experiment rules. A run uses one mode at a time. Foreground continuation uses a Codex Goal; background continuation belongs to the detached controller.
 
-## What Codex Figures Out
+## What Gets Confirmed
 
-You don't write config. Codex infers everything from your sentence and your repo:
+Before the first write, Codex shows:
 
-| What it needs | How it gets it | Example |
-|--------------|----------------|---------|
-| Goal | Your sentence | "get rid of all any types" |
-| Scope | Scans repo structure | `src/**/*.ts` |
-| Metric | Proposes based on goal + tooling | any count (current: 47) |
-| Direction | Infers from "improve" / "reduce" / "eliminate" | lower |
-| Verify | Matches to repo tooling | `grep` count + `tsc --noEmit` |
-| Guard | Suggests a baseline-passing regression check | `npm test` |
+- the goal and numeric target;
+- repository-relative paths it may change;
+- the metric command and explicit parser;
+- an optional regression guard;
+- foreground or background mode;
+- an optional iteration limit.
 
-Before starting, Codex always shows what it found and asks you to confirm. Then you choose foreground or background and say "go."
-By default, the Results directory stays in the launch context: if you started Codex inside a git repo, that repo root is the default workspace root; if you started outside a git repo, the current launch directory is the default workspace root. Codex should not silently widen that to a parent directory unless you explicitly confirm a broader multi-repo workspace. The confirmation summary should always show the chosen Results directory before launch.
+Initialization requires a clean named Git branch. One run manages one repository.
 
-## When It Gets Stuck
+## Results
 
-Instead of blind retrying, the loop escalates:
+Run artifacts live in `autoresearch-results/` and stay uncommitted:
 
-| Trigger | Action |
-|---------|--------|
-| 3 consecutive failures | **REFINE** — adjust within current strategy |
-| 5 consecutive failures | **PIVOT** — try a fundamentally different approach |
-| 2 PIVOTs without progress | **Web search** — look for external solutions |
-| 3 PIVOTs without progress | **Stop** — report that human input is needed |
+| Path | Purpose |
+|---|---|
+| `run.json` | Immutable confirmed configuration |
+| `events.jsonl` | Append-only baseline, iteration, stop, and completion history |
+| `logs/` | Full metric, guard, and background worker output |
+| `runtime.json` | Background process state |
+| `runtime.log` | Background controller lifecycle events |
 
-One success resets all counters.
+`events.jsonl` is the state history. Missing, malformed, contradictory, or partial state is an error; the skill never guesses a result from old files or conversational memory.
 
-## Results Log
+## Safety Model
 
-Every iteration is recorded in the workspace Results directory at `autoresearch-results/results.tsv`:
+- Every trial is a Git commit.
+- A non-improving trial or failed guard is reverted with `git revert`.
+- Out-of-scope edits, branch changes, HEAD drift, malformed metrics, command failures, timeouts, and generated byproducts stop the run with an exact error and log path.
+- Autoresearch artifacts are never staged.
+- A run reports `complete` only when the retained metric reaches the confirmed target.
+- A genuine external blocker is reported explicitly; a difficult or unsuccessful hypothesis is not treated as blocked.
 
+This strictness is intentional. Silent recovery makes long autonomous runs impossible to trust.
+
+## Good Metrics
+
+The verify command must exit successfully and place one finite number on its final non-empty stdout line. It may instead print a JSON object on that line when Codex names one numeric key explicitly.
+
+```text
+7
 ```
-iteration  commit   metric  delta   status    description
-0          a1b2c3d  47      0       baseline  initial any count
-1          b2c3d4e  41      -6      keep      replace any in auth module
-2          -        49      +8      discard   generic wrapper introduced new anys
-3          d4e5f6g  38      -3      keep      type-narrow API response handlers
+
+```json
+{"error_count": 7, "passed": 12}
 ```
 
-Failed experiments revert from git but stay in the log. The log is the real audit trail, while `autoresearch-results/state.json` is the resume snapshot.
-
-## More Features
-
-These are covered in detail in [GUIDE.md](docs/GUIDE.md):
-
-- **Cross-run learning** — lessons from past runs bias future hypothesis generation
-- **Parallel experiments** — test up to 3 hypotheses simultaneously via git worktrees
-- **Session resume** — interrupted runs pick up from the last consistent state
-- **CI/CD mode** (`exec`) — non-interactive, JSON output, for automation pipelines
-- **Dual-gate verification** — separate verify (did it improve?) and guard (did anything break?)
-
-## FAQ
-
-**It only makes small incremental changes. Can it try bigger ideas?**
-By default the loop favors small, verifiable steps — that's by design. But it can go bigger: describe a larger hypothesis in your prompt (e.g., "try replacing the attention mechanism with linear attention and run the full eval"), and it will treat that as a single experiment to verify. The loop is best when the human sets the research direction and the agent does the heavy execution and analysis.
-
-**Is this more for engineering optimization than research?**
-It's strongest when the goal and metric are clear — push coverage up, push errors down, push latency lower. For open-ended research where the direction itself is uncertain, use `plan` mode first to explore, then switch to `loop` once you know what to measure. Think of it as a human-AI collaboration: you provide judgment, it provides iteration speed.
-
-**How do I stop it?** Foreground: interrupt Codex. Background: `$codex-autoresearch` then ask to stop.
-
-**Can it resume after interruption?** Yes. It resumes from `autoresearch-results/state.json` automatically.
-
-**How do I use it in CI?** `Mode: exec` with `codex exec`. All config upfront, JSON output, exit codes 0/1/2.
+Use a guard for behavior the metric does not protect, such as a test suite around a latency benchmark. The guard must pass at baseline.
 
 ## Documentation
 
-| Doc | What it covers |
-|-----|---------------|
-| [INSTALL.md](docs/INSTALL.md) | Skill installer, manual copy, user-scope, and development install options |
-| [GUIDE.md](docs/GUIDE.md) | Full operator's manual: modes, config fields, safety model, advanced usage |
-| [EXAMPLES.md](docs/EXAMPLES.md) | Recipes by domain: coverage, performance, types, security, etc. |
+| Guide | Contents |
+|---|---|
+| [Installation](docs/INSTALL.md) | Install, update, and verify the skill |
+| [User Guide](docs/GUIDE.md) | Configuration, lifecycle, state, and troubleshooting |
+| [Examples](docs/EXAMPLES.md) | Practical prompts and metric patterns |
+| [Contributing](CONTRIBUTING.md) | Architecture and validation for contributors |
+
+## FAQ
+
+**Does installation change my Codex settings?**
+
+No. Installation copies the skill files. Use a current Codex release so foreground runs can use the built-in Goal capability.
+
+**Why Full Access?**
+
+Each iteration creates or reverts a Git commit. Restricted sandboxes may block writes under `.git`. Background runs therefore default to Full Access; `workspace-write` remains an explicit option when its limitations are acceptable.
+
+**Can I stop and resume?**
+
+Yes. Interrupt or pause a foreground Goal. For background, invoke `$codex-autoresearch` and ask for status, stop, or resume with a new direction.
+
+**Can it run without Git or across several repos?**
+
+No. Git is the experiment memory and rollback boundary. Use one run per repository so commit ownership and metrics remain unambiguous.
+
+**Is this only for small changes?**
+
+No. One experiment should test one coherent hypothesis. Its size should match the hypothesis, while still being independently measurable and reversible.
 
 ## Acknowledgments
 
-Built on ideas from [Karpathy's autoresearch](https://github.com/karpathy/autoresearch). The Codex skills platform is by [OpenAI](https://openai.com).
+Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch), generalized for Codex and software repositories.
 
 ## Citation
-
-If you use Codex Autoresearch in your work, please cite it as:
 
 ```bibtex
 @misc{codex-autoresearch,
@@ -205,6 +195,8 @@ If you use Codex Autoresearch in your work, please cite it as:
   url = {https://github.com/leo-lilinxiao/codex-autoresearch}
 }
 ```
+
+GitHub also reads [CITATION.cff](CITATION.cff) for its **Cite this repository** menu.
 
 ## Star History
 
@@ -218,4 +210,4 @@ If you use Codex Autoresearch in your work, please cite it as:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

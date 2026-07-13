@@ -1,220 +1,87 @@
-<p align="center">
-  <img src="../../image/banner.png" width="700" alt="Codex Autoresearch">
-</p>
+# Codex Autoresearch
 
-<h2 align="center"><b>狙う。回す。辿り着く。</b></h2>
+[English](../../README.md) | **日本語**
 
-<p align="center">
-  <i>Codex のための自律型目標駆動実験エンジン。</i>
-</p>
+Codex のための、自律的で測定可能な実験ループです。
 
-<p align="center">
-  <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
-  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
-  <a href="../../LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
-</p>
+数値目標を伝えると、Codex はリポジトリを調査して実行条件を確認し、1 つ変更、検証、改善の保持、失敗の取り消しを目標達成まで繰り返します。
 
-<p align="center">
-  <a href="../../README.md">English</a> ·
-  <a href="README_ZH.md">🇨🇳 中文</a> ·
-  <b>🇯🇵 日本語</b> ·
-  <a href="README_KO.md">🇰🇷 한국어</a> ·
-  <a href="README_FR.md">🇫🇷 Français</a> ·
-  <a href="README_DE.md">🇩🇪 Deutsch</a> ·
-  <a href="README_ES.md">🇪🇸 Español</a> ·
-  <a href="README_PT.md">🇧🇷 Português</a> ·
-  <a href="README_RU.md">🇷🇺 Русский</a>
-</p>
-
----
-
-コンセプト：改善したいことを Codex に伝えて、あとは任せる。コードを修正し、結果を検証し、保持か破棄を判断し、繰り返す。戻ってくると、実験ログとより良いコードベースが待っています。
-
-[Karpathy の autoresearch](https://github.com/karpathy/autoresearch) に着想を得て、ML を超えて機械的に検証できるあらゆる目標に汎用化：テストカバレッジ、型エラー、レイテンシ、lint 警告、セキュリティ問題、リリース準備 — コマンドで改善を判定できるなら、ループが反復できます。
+テスト失敗数、カバレッジ、型エラー、警告、レイテンシ、バイナリサイズ、再現可能なセキュリティ検出などに使えます。
 
 ## クイックスタート
 
-> [!IMPORTANT]
-> Full Access で Codex を起動することを推奨します：
->
-> ```bash
-> codex --dangerously-bypass-approvals-and-sandbox
-> ```
->
-> autoresearch を始める前にこのコマンドで起動すると、foreground と background が最もスムーズに動きます。
+Codex でインストールします。
 
 ```text
-# Codex にインストール（推奨）
 $skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-プロジェクトで開きます：
+クリーンな Git リポジトリを Full Access で開くことを推奨します。
 
-```
-あなた: $codex-autoresearch
-        TypeScript コードの any 型を全て除去してほしい
-
-Codex:  src/**/*.ts に 47 個の `any` が見つかりました。
-        Results ディレクトリ: ./autoresearch-results/
-        指標：any の出現回数（現在 47）、方向：減少
-        検証：grep カウント + tsc --noEmit ガード
-        実行モード：foreground と background のどちらにしますか？
-
-あなた: Background、go。一晩中走らせて。
-
-Codex:  background 実行を開始 — ベースライン：47。反復中。
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-background 実行は、信頼できる **Full Access** の Codex セッションから開始してください。
+次に実行します。
 
-改善は蓄積され、失敗はロールバックされ、全てが記録されます。
+```text
+$codex-autoresearch `python3 scripts/score.py` の error_count を 0 にする
+```
 
-手動コピー、symlink、ユーザースコープの方法は [INSTALL.md](../INSTALL.md)、完全な操作マニュアルは [GUIDE.md](../GUIDE.md) を参照。
+最初の書き込み前に、目標、変更範囲、ベースライン、ターゲット、測定コマンド、任意の guard、foreground/background を確認します。
 
 ## 仕組み
 
-```
-一文で伝える  →  Codex がスキャン・確認  →  "go" と言う
-                                              |
-                                 +------------+------------+
-                                 |                         |
-                            foreground                background
-                          (現在のセッション)        (バックグラウンド、一晩)
-                                 |                         |
-                                 +------------+------------+
-                                              |
-                                              v
-                                    +-------------------+
-                                    |    コアループ      |
-                                    |                   |
-                                    |  1つ変更する      |
-                                    |  trial commit     |
-                                    |  検証を実行       |
-                                    |  改善？ → 保持    |
-                                    |  悪化？ → 元に戻す|
-                                    |  結果を記録       |
-                                    |  繰り返す         |
-                                    +-------------------+
+```text
+証拠を確認 -> 1 つの仮説を変更 -> コミットして測定
+                                      |
+                         改善 + guard 成功: 保持
+                         それ以外: git revert
+                                      |
+                               記録して継続
 ```
 
-これだけです。どちらか一つを選びます：foreground は現在のセッションでループを実行し、background はバックグラウンドプロセスに引き継いで席を外せます。同じループですが、同時には実行できません。
+Codex が仮説とコード変更を担当し、制御スクリプトが Git 境界、測定、ロールバック、状態を担当します。
 
-## あなたの一言 vs 何が起こるか
+## Foreground と Background
 
-| あなたの一言 | 何が起こるか |
-|-------------|------------|
-| "テストカバレッジを上げて" | 目標達成か中断まで反復 |
-| "12個の失敗テストを直して" | 一つずつ修復してゼロになるまで |
-| "なぜAPIが503を返すのか？" | 反証可能な仮説で根本原因を追跡 |
-| "このコードは安全か？" | STRIDE + OWASP 監査、全発見にコード証拠付き |
-| "リリースして" | 準備状況を検証、チェックリスト生成、ゲート付きリリース |
-| "最適化したいが何を測ればいいかわからない" | リポジトリを分析、指標を提案、設定を生成 |
+| | Foreground | Background |
+|---|---|---|
+| 実行場所 | 現在の Codex タスク | 独立 controller |
+| 継続 | 公式 Codex Goal | 1 反復につき 1 つの `codex exec` worker |
+| 用途 | ライブで監視・指示 | 長時間・夜間実行 |
+| 制御 | Goal の pause/resume | `$codex-autoresearch` で status/stop/resume |
 
-裏側では、Codex が 7 つのモード（loop、plan、debug、fix、security、ship、exec）のいずれかにマッピングします。モードを選ぶ必要はありません。
+Foreground は公式 Goal で継続します。Background は Goal を作らず controller が継続します。インストールによって Codex 設定は変更されません。
 
-## Codex が自動で把握すること
+## 結果
 
-設定を書く必要はありません。Codex があなたの言葉とリポジトリから全てを推論します：
+未コミットの `autoresearch-results/` に保存されます。
 
-| 必要な情報 | 取得方法 | 例 |
-|-----------|---------|-----|
-| 目標 | あなたの一言 | "全てのany型を除去して" |
-| スコープ | リポジトリ構造をスキャン | `src/**/*.ts` |
-| 指標 | 目標 + ツールチェーンから提案 | any カウント（現在: 47） |
-| 方向 | "改善" / "削減" / "除去" から推論 | 減少 |
-| 検証コマンド | リポジトリのツールとマッチング | `grep` カウント + `tsc --noEmit` |
-| ガード | ベースラインで既に通る回帰チェックを提案 | `npm test` |
+| パス | 内容 |
+|---|---|
+| `run.json` | 確認済みの不変設定 |
+| `events.jsonl` | 追記専用の状態・監査履歴 |
+| `logs/` | 測定、guard、worker の完全な出力 |
+| `runtime.json` | バックグラウンドプロセス状態 |
+| `runtime.log` | controller のライフサイクル |
 
-開始前に、Codex は常に検出した内容を提示し、確認を求めます。その後 foreground か background を選んで "go" と言います。
-デフォルトでは、Results ディレクトリは起動コンテキストに置かれます。Codex を git リポジトリ内で起動した場合はそのリポジトリルートが既定の workspace root になり、git リポジトリ外で起動した場合は現在の起動ディレクトリが既定の workspace root になります。より広いマルチリポジトリ workspace を明示的に確認しない限り、Codex が黙って親ディレクトリへ広げるべきではありません。起動前の確認サマリーには、選ばれた Results ディレクトリを必ず表示するべきです。
+`events.jsonl` が唯一の実行状態です。欠損、破損、矛盾があれば推測で復旧せず、明確に失敗します。
 
-## スタックしたとき
+## 信頼性
 
-盲目的にリトライせず、段階的にエスカレートします：
+- 新しい実行にはクリーンな名前付き Git ブランチが必要です。
+- 1 実行は 1 リポジトリ、1 指標、1 ターゲットです。
+- 各実験はコミットされ、失敗は `git revert` されます。
+- 範囲外変更、Git ドリフト、不正な指標、コマンド失敗、タイムアウト、ロールバック失敗はログ付きで停止します。
+- 保持された指標がターゲットに達した場合だけ `complete` になります。
 
-| トリガー | アクション |
-|----------|-----------|
-| 3 回連続の失敗 | **REFINE** — 現在の戦略内で調整 |
-| 5 回連続の失敗 | **PIVOT** — 根本的に異なるアプローチを試行 |
-| 改善なしの PIVOT 2 回 | **Web 検索** — 外部の解決策を探索 |
-| 改善なしの PIVOT 3 回 | **停止** — 人の判断が必要と報告 |
+## 要件
 
-1 回の成功で全てのカウンターがリセットされます。
+- Skills と Goals を備えた現行 Codex CLI
+- Python 3.11+
+- Git
 
-## 結果ログ
+[インストール](../INSTALL.md)、[ユーザーガイド](../GUIDE.md)、[例](../EXAMPLES.md)も参照してください。
 
-各イテレーションは `autoresearch-results/results.tsv` に記録されます：
-
-```
-iteration  commit   metric  delta   status    description
-0          a1b2c3d  47      0       baseline  initial any count
-1          b2c3d4e  41      -6      keep      replace any in auth module
-2          -        49      +8      discard   generic wrapper introduced new anys
-3          d4e5f6g  38      -3      keep      type-narrow API response handlers
-```
-
-失敗した実験は git からリバートされますが、ログには残ります。ログが本当の監査証跡であり、`autoresearch-results/state.json` は再開用スナップショットです。
-
-## その他の機能
-
-以下は [GUIDE.md](../GUIDE.md) で詳しく説明しています：
-
-- **クロスラン学習** — 過去の実行からの教訓が将来の仮説生成に影響
-- **並列実験** — git worktree で最大 3 つの仮説を同時にテスト
-- **セッション再開** — 中断された実行は最後の一貫した状態から再開
-- **CI/CD モード** (`exec`) — 非対話、JSON 出力、自動化パイプライン向け
-- **二重ゲート検証** — verify（改善したか？）と guard（他に壊れていないか？）を分離
-
-## FAQ
-
-**毎回小さな変更しかしない。もっと大きなアイデアを試せる？**
-デフォルトでは小さく検証可能なステップを好みます — これは設計通りです。しかしもっと大きなこともできます：プロンプトでより大きな仮説を記述すれば（例：「attention メカニズムを linear attention に置き換えて完全な eval を実行して」）、それを一つの実験として検証します。人が研究の方向を決め、エージェントが実行と分析を担当するのが最適な使い方です。
-
-**これは工学的最適化向き？それとも研究向き？**
-目標と指標が明確なときに最も強力です — カバレッジを上げる、エラーを減らす、レイテンシを下げる。研究の方向自体が不確かな場合は、まず `plan` モードで探索し、何を測るか決まったら `loop` に切り替えてください。人間とAIの協業と考えてください：あなたが判断を提供し、エージェントが反復速度を提供します。
-
-**どうやって止める？** Foreground：Codex を中断。Background：`$codex-autoresearch` で停止を依頼。
-
-**中断後に再開できる？** はい。`autoresearch-results/state.json` から自動的に再開します。
-
-**CI で使うには？** `Mode: exec` と `codex exec`。全設定を事前に指定、JSON 出力、終了コード 0/1/2。
-
-## ドキュメント
-
-| ドキュメント | 内容 |
-|------------|------|
-| [INSTALL.md](../INSTALL.md) | skill installer、手動コピー、ユーザースコープ、開発用 symlink |
-| [GUIDE.md](../GUIDE.md) | 完全な操作マニュアル：モード、設定フィールド、安全モデル、高度な使い方 |
-| [EXAMPLES.md](../EXAMPLES.md) | 分野別レシピ：カバレッジ、パフォーマンス、型、セキュリティなど |
-
-## 謝辞
-
-[Karpathy の autoresearch](https://github.com/karpathy/autoresearch) の理念を基に構築。Codex skills プラットフォームは [OpenAI](https://openai.com) 提供。
-
-## Citation
-
-Codex Autoresearch を研究や開発で使用した場合は、次の形式で引用してください：
-
-```bibtex
-@misc{codex-autoresearch,
-  author = {Li, Linxiao},
-  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
-  year = {2026},
-  publisher = {GitHub},
-  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
-}
-```
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
- </picture>
-</a>
-
-## ライセンス
-
-MIT — [LICENSE](../../LICENSE) を参照。
+MIT License。着想は [Karpathy の autoresearch](https://github.com/karpathy/autoresearch) から得ています。

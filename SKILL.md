@@ -1,160 +1,131 @@
 ---
 name: codex-autoresearch
-description: "Autonomous long-running iteration for Codex CLI. Use when the user wants Codex to plan or run an unattended improve-verify loop toward a measurable or verifiable outcome, especially for overnight runs; it also covers repeated debugging, fixing, security auditing, and ship-readiness workflows. Do not use for ordinary one-shot coding help or casual Q&A."
+description: "Run autonomous, measurable experiments in a Git repository: change one hypothesis, verify a numeric metric, keep improvements, and revert failures. Use when the user wants Codex to keep iterating toward a numeric target in the foreground or as a detached background run. Do not use for ordinary one-shot coding, open-ended work without a mechanical metric, or non-Git directories."
 metadata:
-  short-description: "Run an unattended improve-verify loop"
+  short-description: "Run measurable autonomous experiments"
 ---
 
-# codex-autoresearch
+# Codex Autoresearch
 
-Autonomous goal-directed iteration. Modify -> Verify -> Keep/Discard -> Repeat.
+Turn a repo-level goal into a controlled loop:
 
-## When Activated
+`inspect -> change one thing -> verify -> keep or revert -> repeat`
 
-1. Classify the request as `loop`, `plan`, `debug`, `fix`, `security`, `ship`, or `exec`, and parse any inline config from the prompt.
-2. Load `references/core-principles.md` and `references/structured-output-spec.md`. For active execution modes (`loop`, `debug`, `fix`, `security`, `ship`, `exec`), also load `references/runtime-hard-invariants.md`.
-3. Load only the additional references the current situation needs:
-   - `references/session-resume-protocol.md` for every interactive launch or existing-run control path, before deciding fresh vs resumable
-   - `references/environment-awareness.md` before choosing hardware-sensitive work
-   - `references/interaction-wizard.md` for every new interactive launch (`loop`, `debug`, `fix`, `security`, `ship`) before execution begins
-   - `references/results-logging.md` only when debugging TSV/state semantics or helper behavior directly
-4. Load the selected mode workflow reference plus only the detailed cross-cutting protocols that actually apply (`lessons`, `pivot`, `health-check`, `parallel`, `web-search`, `hypothesis-perspectives`).
-5. Use the bundled helper scripts when stateful artifacts or runtime control are involved. Resolve them relative to the loaded skill bundle root (`<skill-root>/scripts/...`), not the target repo root. In the common repo-local install this means commands such as `python3 .agents/skills/codex-autoresearch/scripts/autoresearch_init_run.py --repo <primary_repo> --workspace-root <workspace_root> ...`. New-run helpers (`autoresearch_init_run.py` and `autoresearch_runtime_ctl.py launch/create-launch`) require both `--repo <primary_repo>` and `--workspace-root <workspace_root>`. Existing-run control-plane helpers (`autoresearch_resume_check.py`, `autoresearch_resume_prompt.py`, `autoresearch_supervisor_status.py`, `autoresearch_health_check.py`, `autoresearch_runtime_ctl.py status/stop/start`) require `--repo <primary_repo>` and resolve the workspace-owned Results directory from the repo-local pointer plus canonical context. `autoresearch_launch_gate.py --repo <primary_repo>` is the pre-wizard gate: it returns `fresh` for a clean repo with no prior artifacts and otherwise uses the same pointer/context recovery path.
-6. Execute the selected workflow exactly as written and produce the required structured output and artifacts.
+Codex supplies the engineering judgment. The bundled control script supplies strict Git boundaries, measurement, rollback, state, and logs.
 
-## Core Loop
+## Load
 
-1. Read the relevant context.
-2. Define a mechanical success metric.
-3. Establish a baseline.
-4. Make one focused change.
-5. Verify with a command.
-6. Keep or discard the change.
-7. Log the result.
-8. Repeat.
+- Read `references/workflow.md` for every invocation, including status, history, report, stop, and resume.
+- Read `references/experiment.md` before starting or continuing an active run.
+- Read `references/background.md` only for a background run.
 
-## Modes
+Resolve commands from this skill's own directory as `<skill-root>/scripts/autoresearch.py`. Never assume the target repository contains the script.
 
-| Mode | Purpose | Primary Reference |
-|------|---------|-------------------|
-| `loop` | Run the autonomous improvement loop | `references/loop-workflow.md` |
-| `plan` | Convert a vague goal into a launch-ready config | `references/plan-workflow.md` |
-| `debug` | Hunt bugs with evidence and hypotheses | `references/debug-workflow.md` |
-| `fix` | Iteratively reduce errors to zero | `references/fix-workflow.md` |
-| `security` | Run a structured security audit | `references/security-workflow.md` |
-| `ship` | Gate and execute a ship workflow | `references/ship-workflow.md` |
-| `exec` | Non-interactive CI/CD mode with JSON output | `references/exec-workflow.md` |
+## Before Starting
 
-Use `Mode: <name>` in the prompt to force a specific subworkflow.
+1. Require one Git repository root. If the task spans repositories, ask the user to choose one run per repository.
+2. Check for `autoresearch-results/run.json` with:
 
-## Required Config
+   ```bash
+   python3 <skill-root>/scripts/autoresearch.py status --repo <repo>
+   ```
 
-For the generic loop, the following fields are needed internally. Codex infers them from the user's natural language input and repo context, then fills gaps through guided conversation:
+   `not_initialized` is fresh. Any other status or schema error must be surfaced; do not infer state from other files.
+3. For a fresh run, inspect the repo and propose:
+   - one plain-language goal,
+   - repository-relative file or directory scopes (no globs),
+   - one numeric metric and whether lower or higher is better,
+   - a command whose final non-empty stdout line is that number, or a JSON object plus one explicit key,
+   - a numeric target,
+   - an optional baseline-passing guard command,
+   - foreground or background,
+   - an optional iteration limit.
+4. Run candidate measurement commands read-only if needed, then show one concise confirmation. Include the baseline, target, scope, commands, mode, and the fact that each trial is committed and failed trials are reverted.
+5. Do not write project files, initialize artifacts, create a Goal, or launch a controller before clear user approval such as `go`.
 
-- `Goal`
-- `Scope`
-- `Metric`
-- `Direction`
-- `Verify`
+## Start
 
-Optional but recommended:
+After approval, use the exact confirmed values.
 
-- `Guard`
-- `Iterations`
-- `Run tag`
-- `Stop condition`
+### Foreground
 
-For every new interactive run, use the wizard contract in `references/interaction-wizard.md`.
+Initialize once:
 
-## Explicit Run Modes
-
-- Use `$codex-autoresearch` for interactive autoresearch launches and follow-up controls.
-- For a new interactive run, scan the repo, ask the confirmation questions, and require an explicit run-mode choice: **foreground** or **background**.
-- If the user chooses **foreground**, keep the loop in the current Codex session. When model-visible goal tools are available, use the official Codex goal only as the thread-level continuation anchor: after launch approval, call `get_goal`; reuse a matching non-complete current goal, or call `create_goal` with the confirmed objective when no goal exists. If an existing goal cannot be reused, surface it in the confirmation summary before launch and do not create a second one. Mark the goal complete with `update_goal` only when the autoresearch stop condition is actually satisfied; mark it blocked only when the run truly cannot continue without external input or an environment change. Use the shared helper scripts (`autoresearch_init_run.py --repo <primary_repo> --workspace-root <workspace_root>`, `autoresearch_record_iteration.py`, `autoresearch_select_parallel_batch.py`, `autoresearch_supervisor_status.py --repo <primary_repo>`) and do not create launch/runtime control artifacts.
-- If the user chooses **background**, call `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root>` to persist the confirmed launch manifest and start the detached runtime controller in one step, then return a short handoff summary instead of tailing or polling the run unless the user explicitly asked you to wait. Do not create or mutate official Codex goals for background runs; the runtime controller owns detached continuation. The runtime itself should execute non-interactive `codex exec` sessions with the generated runtime prompt supplied on stdin. Detached sessions default to `danger_full_access` (`--dangerously-bypass-approvals-and-sandbox`) unless the user explicitly asks for the sandboxed `workspace_write` path. If the mini-wizard outcome is "fresh start", call `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root> --fresh-start` so prior persistent run-control artifacts are archived as part of the same handoff.
-- If the user resumes an existing interactive run in the other mode, synchronize `autoresearch-results/state.json` internally before continuing. Background `start` already performs that sync automatically before it relaunches nested Codex sessions; `autoresearch_set_session_mode.py` remains an internal/scripted recovery helper, not a normal user-facing step.
-- Treat the repo where the run starts as the **primary repo**. Single-repo runs are the default. If the task truly spans multiple codebases, declare **companion repos** explicitly and give each repo its own scope instead of stuffing absolute paths into one mixed scope string.
-- For a new interactive run, default the `workspace_root` from the launch context: if Codex started inside a git repo, use that repo root; otherwise use the current launch directory. Do not silently widen to a parent workspace just because sibling repos or old artifacts exist. Only widen when the user explicitly confirms a broader multi-repo workspace, and show the resulting `Results directory` in the confirmation summary.
-- Foreground and background share the same experiment protocol, but they are mutually exclusive for a given workspace/run. Never try to keep both modes active against the same `autoresearch-results/` artifacts at the same time.
-- For every interactive foreground/background launch that proceeds past the session-resume gate, check `python3 <skill-root>/scripts/autoresearch_hooks_ctl.py status` and then follow the readiness flow in `references/interaction-wizard.md`. Capture the first `startup_tip_needed` value from that status; if it is true, include one product-facing launch tip in the confirmation summary. If setup is missing, stale, disabled, or untrusted, run `python3 <skill-root>/scripts/autoresearch_hooks_ctl.py install` before clarification continues. Treat setup details as internal preparation unless a setup failure blocks launch. Use model-visible goal tools when they are actually available.
-- For `status`, `stop`, or `resume` requests, stay on the same skill entry. `status` and `stop` apply to background runs only; foreground runs stay in the current session.
-- `exec` remains the advanced / CI path. It is fully specified upfront and does not use the interactive handoff.
-
-## Hard Rules
-
-1. **Ask before act for new interactive launches.** For `loop`, `debug`, `fix`, `security`, and `ship`, scan the repo, run the session-resume launch gate, and ask at least one repo-grounded confirmation round before the run starts. Load and follow `references/interaction-wizard.md` for every new interactive launch. The launch wizard must include an explicit run-mode choice: foreground or background. `exec` mode is the exception: it is fully configured upfront and must not stop for a launch question.
-2. **Respect the chosen run mode after launch approval.** In interactive modes, once the user says "go" (or equivalent: "start", "launch", or any clear approval), follow the selected run mode exactly. Foreground stays in the current session, may align the official Codex goal when goal tools are available, and must not call `autoresearch_runtime_ctl.py launch`. Background calls `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root>`, creating the confirmed launch manifest and detached runtime as a single script-level action; after launch, return a short handoff summary and do not monitor in the foreground unless explicitly asked. Background must not create or update official Codex goals. Detached sessions use the confirmed launch manifest's `execution_policy` and default to `danger_full_access` unless the user explicitly asks for sandboxed `workspace_write`. If the chosen background path is a fresh start after recovery analysis, use `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root> --fresh-start` so stale persistent run-control artifacts are archived automatically. `exec` mode has no launch question; once safety checks pass, it begins immediately.
-3. **Never ask after the user approves the run.** Once the user has approved `go` in either foreground or background mode, do not pause mid-run to ask anything -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity during the loop, apply best practices and keep going. The user may be asleep.
-4. Read all in-scope files before the first write.
-5. One focused change per iteration.
-6. Mechanical verification only.
-7. After launch approval, scoped per-iteration trial commits are part of the approved run; do not ask separately before creating them. Create a trial commit before verification only when every managed repo's worktree stays within that repo's declared scope or autoresearch-owned artifacts, remove generated verify/guard byproducts, apply the approved keep/discard closeout, then record the current clean HEAD commit(s). The background runtime enforces the same scope-aware gate before each relaunch boundary, but foreground runs must still honor it before creating a trial commit.
-8. Never stage or revert unrelated user changes.
-9. Keep run artifacts uncommitted and never stage them.
-10. Use the rollback strategy approved during setup. In a dedicated experiment branch/worktree with pre-launch approval, `git reset --hard HEAD~1` is allowed; otherwise use `git revert --no-edit HEAD`.
-11. Discard gains under 1% that add disproportionate complexity.
-12. Unlimited runs by default unless the user explicitly asks for `Iterations: N`.
-13. External ship actions (deploy, publish, release) must be confirmed during the pre-launch wizard phase. If not confirmed before launch, skip them and log as blocker.
-14. Do not ask "should I continue?". Once launched, keep the chosen run mode active until interrupted or a hard blocker / configured terminal condition appears (see `references/autonomous-loop-protocol.md` Stop Conditions for the full definition).
-15. During active execution, keep `references/runtime-hard-invariants.md` as the primary runtime checklist. Foreground's core persistent artifacts are `autoresearch-results/results.tsv`, `autoresearch-results/state.json`, `autoresearch-results/context.json`, and `autoresearch-results/lessons.md`; background also uses `autoresearch-results/launch.json`, `autoresearch-results/runtime.json`, and `autoresearch-results/runtime.log`.
-16. When stuck (3+ consecutive discards), use the PIVOT/REFINE escalation ladder from `references/pivot-protocol.md` instead of brute-force retrying.
-17. Prefer the bundled helper scripts over hand-editing `autoresearch-results/results.tsv`, `autoresearch-results/state.json`, `autoresearch-results/context.json`, or runtime-control files. Always call them via the skill-bundle path (`<skill-root>/scripts/...`); never call bare `scripts/autoresearch_*.py` from the target repo root unless the skill bundle itself is actually installed there.
-18. In `exec` mode, never leave repo-root state artifacts behind. If helper scripts need state, use the exec scratch path and explicitly clean it up before exit. New schema artifacts still belong under the workspace-owned `autoresearch-results/` directory; legacy repo-root artifacts trigger the unsupported-layout error unless the user explicitly chooses a fresh start.
-19. After any context compaction event (the CLI warns about thread length and compaction), re-read `references/runtime-hard-invariants.md`, `references/core-principles.md`, and the selected mode workflow from disk before the next iteration. Do not rely on memory of those documents after compaction.
-20. Every 10 iterations, perform the Protocol Fingerprint Check defined in `references/runtime-hard-invariants.md`. Use Phase 8.7 of `references/autonomous-loop-protocol.md` only for the detailed re-anchoring procedure. If any item fails, re-read all loaded runtime docs from disk before continuing.
-
-## Structured Output
-
-Every mode should follow `references/structured-output-spec.md`.
-
-Minimum requirement:
-
-- for interactive and user-facing modes, print a setup summary before the loop starts,
-- for interactive and user-facing modes, print progress updates during the loop,
-- for interactive and user-facing modes, print a completion summary at the end,
-- for `exec`, emit no prose; every assistant-visible payload must be one of the JSON lines defined in `references/exec-workflow.md`,
-- write the mode-specific output files when the workflow defines an output directory.
-
-## Quick Start
-
-```text
-$codex-autoresearch
-I want to get rid of all the `any` types in my TypeScript code
+```bash
+python3 <skill-root>/scripts/autoresearch.py init \
+  --repo <repo> --goal <goal> --scope <path> \
+  --metric-name <name> --direction <lower|higher> \
+  --verify <command> [--metric-key <key>] --target <number> \
+  [--guard <command>] [--max-iterations <n>]
 ```
 
-```text
-$codex-autoresearch
-I want to make our API faster but I don't know where to start
+Then call `get_goal`. Reuse a matching unfinished Goal, otherwise call `create_goal`. The Goal objective must identify this as codex-autoresearch, include the returned run id, metric and target, and say to continue the validated experiment loop until terminal status. If a different unfinished Goal exists, stop and explain the conflict. Official Codex Goal continuation owns foreground persistence; this skill does not install hooks or modify Codex configuration.
+
+If Goal tools are unavailable, do not claim the foreground run can continue autonomously across turns. Explain that the installed Codex does not expose the required Goal capability.
+
+### Background
+
+Launch once with the same configuration:
+
+```bash
+python3 <skill-root>/scripts/autoresearch.py launch \
+  --repo <repo> --goal <goal> --scope <path> \
+  --metric-name <name> --direction <lower|higher> \
+  --verify <command> [--metric-key <key>] --target <number> \
+  [--guard <command>] [--max-iterations <n>] \
+  --execution-policy <danger-full-access|workspace-write>
 ```
 
-```text
-$codex-autoresearch
-pytest is failing, 12 tests broken after the refactor
+Background defaults to `danger-full-access`; show this in the confirmation. Use `workspace-write` only when the user explicitly prefers the sandbox and accepts that Git operations may be restricted. Do not create a Codex Goal for background runs.
+
+After a successful launch, report the run id, baseline, controller PID, results path, and status command. Do not poll unless asked.
+
+## Experiment Loop
+
+For each foreground iteration:
+
+1. Read validated status and recent events.
+2. Inspect evidence and choose one focused hypothesis that differs from discarded attempts.
+3. Modify only confirmed scopes. Do not manually commit, revert, or edit `autoresearch-results/`.
+4. Finalize exactly once:
+
+   ```bash
+   python3 <skill-root>/scripts/autoresearch.py finish \
+     --repo <repo> --description <short-description>
+   ```
+
+`finish` checks scope and Git provenance, creates the trial commit, runs the metric and guard, keeps an improvement, reverts a failed trial, appends the audit event, and marks the run complete when the target is reached.
+
+Continue immediately while status is `active`. On `complete`, verify status, call `update_goal(status="complete")`, and summarize the baseline, final metric, iterations, and retained commits.
+
+Use `block` only when progress truly requires external input or an environment change, and only after the same blocker has prevented progress on three consecutive Goal turns:
+
+```bash
+python3 <skill-root>/scripts/autoresearch.py block --repo <repo> --reason <reason>
 ```
 
-Codex scans the repo, asks targeted questions to clarify your intent, asks you to choose foreground or background for interactive runs, then starts the loop. You never need to write key-value config.
+Then call `update_goal(status="blocked")`. A failed hypothesis, difficult bug, or lack of immediate improvement is not a blocker.
 
-## References
+## Existing Runs
 
-- `references/core-principles.md`
-- `references/runtime-hard-invariants.md`
-- `references/loop-workflow.md`
-- `references/autonomous-loop-protocol.md`
-- `references/interaction-wizard.md`
-- `references/structured-output-spec.md`
-- `references/modes.md`
-- `references/plan-workflow.md`
-- `references/debug-workflow.md`
-- `references/fix-workflow.md`
-- `references/security-workflow.md`
-- `references/ship-workflow.md`
-- `references/exec-workflow.md`
-- `references/results-logging.md`
-- `references/lessons-protocol.md`
-- `references/pivot-protocol.md`
-- `references/web-search-protocol.md`
-- `references/environment-awareness.md`
-- `references/parallel-experiments-protocol.md`
-- `references/session-resume-protocol.md`
-- `references/health-check-protocol.md`
-- `references/hypothesis-perspectives.md`
+- History request: run `history --repo <repo>`; use `--format tsv` only for tabular export.
+- HTML report request: run `report --repo <repo>` and return its generated path. Both views validate the complete event history; neither is runtime state.
+- Same foreground goal: validate `status`, resume the matching official Goal, and continue.
+- Background `status`, `stop`, or `resume`: use the corresponding script command. Resume requires a user note or new direction.
+- Different goal: show the current run. Stop a live background run first; for an active foreground run, ask the user to clear its official Goal with `/goal clear`. Then ask before `archive` and initialize the fresh run.
+- `complete`: never resume it. Archive before a new goal.
+- Invalid JSON, unknown schema, event gap, Git mismatch, stale controller, out-of-scope change, or malformed metric output: stop and report the exact error and log path. Never reconstruct, guess, or silently repair state.
+- A failed initialization may leave `init-error.json` and command logs but no `run.json`. Report the diagnostic and use explicit `archive` before retrying; do not treat it as a fresh run.
+
+## Invariants
+
+1. Ask before the first write or launch.
+2. Require a clean named Git branch at initialization.
+3. Keep one authoritative configuration in `run.json` and one append-only state history in `events.jsonl`.
+4. Use one numeric metric and one target. A guard is pass/fail and must pass at baseline.
+5. One focused experiment per `finish`; one repository per run.
+6. Never stage autoresearch artifacts or touch paths outside confirmed scope.
+7. Verification commands must exit zero, emit UTF-8, and use an explicit scalar or JSON-key parser. Parsing or command errors stop the run.
+8. Never hide failures with fallback parsing, old-layout recovery, or synthetic success.
+9. Never ask "should I continue?" after launch. Continue until target, user stop, iteration limit, or a verified external blocker.
+10. Preserve command output and controller events under `autoresearch-results/` for diagnosis.

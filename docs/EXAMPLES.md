@@ -1,701 +1,188 @@
-# Recipes
+# Examples
 
-Working examples organized by what you want to accomplish. Each recipe shows what you say to Codex, what Codex does, and the configuration it generates internally. You only need the one-liner -- Codex figures out the rest.
+These examples show the user prompt and the measurement contract Codex should confirm. Users normally provide only the prompt; Codex discovers the commands from the repository.
 
----
+## Fix Failing Cases
 
-## Table of Contents
-
-- [Iterating Toward a Target](#iterating-toward-a-target)
-- [Fixing Broken Things](#fixing-broken-things)
-- [Hunting Bugs](#hunting-bugs)
-- [Auditing for Vulnerabilities](#auditing-for-vulnerabilities)
-- [Planning When You Are Unsure](#planning-when-you-are-unsure)
-- [Releasing with Confidence](#releasing-with-confidence)
-- [Chaining Modes](#chaining-modes)
-- [CI/CD Mode (exec)](#cicd-mode-exec)
-- [MCP Integration](#mcp-integration)
-- [Choosing Verify and Guard Commands](#choosing-verify-and-guard-commands)
-
----
-
-## Iterating Toward a Target
-
-These all use loop mode. You state a goal, Codex proposes metrics and verification, you say "go."
-
-### Eliminate `any` types in TypeScript
-
-```
-You:   $codex-autoresearch
-       Get rid of all the `any` types in my TypeScript code
-
-Codex: I found 47 `any` occurrences across src/**/*.ts.
-
-       Confirmed:
-       - Target: eliminate `any` types in src/**/*.ts
-       - Metric: `any` count (current: 47), direction: lower
-       - Verify: grep count + tsc --noEmit as guard
-
-       Need to confirm:
-       - Run until all gone, or cap at N iterations?
-
-You:   Go, run overnight.
+```text
+$codex-autoresearch
+Reduce `python3 scripts/score.py` error_count to 0. Keep pytest passing.
 ```
 
-What Codex does each iteration: picks one `any` usage, replaces it with a proper type annotation, verifies the count dropped and tsc still compiles, keeps or reverts.
-
-### Raise Python test coverage
-
-```
-You:   $codex-autoresearch
-       Raise my test coverage from 58% to at least 85%
-
-Codex: Found 58% coverage across src/.
-
-       Confirmed:
-       - Target: 85%+ test coverage
-       - Metric: coverage percentage, direction: higher
-       - Verify: pytest coverage report
-       - Guard: ruff linter
-
-       Need to confirm:
-       - Should I write new test files or only add to existing ones?
-       - Any modules to prioritize?
-
-You:   Either is fine. Start with src/auth/ and src/api/. Go.
+```text
+Scope: src
+Verify: python3 scripts/score.py
+Metric parser: JSON key error_count
+Direction: lower
+Target: 0
+Guard: python3 -m pytest -q
 ```
 
-What Codex does each iteration: identifies an uncovered function or branch, writes a test for it, verifies coverage increased and lint still passes, keeps or reverts.
+The score script should exit zero and report a numeric count even before the defects are fixed.
 
-### Reduce API response time
+## Remove Type Errors
 
-```
-You:   $codex-autoresearch
-       The /search endpoint p95 is 800ms, get it under 200ms
-
-Codex: Found the search handler in src/api/search.ts. It queries
-       PostgreSQL with 3 JOINs and no index hints.
-
-       Confirmed:
-       - Target: p95 latency under 200ms for /search
-       - Metric: p95 latency in ms, direction: lower
-       - Verify: benchmark script, Guard: existing test suite
-
-       Need to confirm:
-       - Can I add database indexes, or code-only changes?
-       - Is there a load testing script I should use?
-
-You:   You can add indexes. Use `npm run bench:search` for benchmarks. Go.
+```text
+$codex-autoresearch
+Eliminate TypeScript errors under src without changing generated clients.
 ```
 
-Strategies Codex will try: adding database indexes, optimizing query structure, introducing caching, reducing middleware overhead, batching related queries.
+Useful contract:
 
-### Shrink Webpack build warnings
-
-```
-You:   $codex-autoresearch
-       Eliminate all the Webpack build warnings
-
-Codex: Found 23 warnings in the last build output.
-
-       Confirmed:
-       - Target: zero build warnings
-       - Metric: warning count, direction: lower
-       - Verify: build output warning count
-       - Guard: unit test suite
-
-       Need to confirm:
-       - Should I also address deprecation notices?
-
-You:   Yes. Go, 15 iterations max.
+```text
+Scope: src
+Verify: node scripts/count-type-errors.mjs
+Direction: lower
+Target: 0
+Guard: npm test
 ```
 
-### Speed up the CI pipeline
+A project-owned counting script is more reliable than parsing changing compiler prose in the skill prompt.
 
-```
-You:   $codex-autoresearch
-       CI takes 14 minutes, I need it under 6
+## Raise Coverage
 
-Codex: Analyzed .github/workflows/ci.yml. The test job runs sequentially
-       and installs dependencies from scratch each time.
-
-       Confirmed:
-       - Target: CI duration under 6 minutes
-       - Metric: total pipeline time, direction: lower
-       - Verify: local test timing as proxy
-       - Guard: all tests must still pass
-
-       Need to confirm:
-       - Can I modify the workflow YAML, or code-only?
-       - Is the Docker build step required on every push?
-
-You:   You can modify the workflow. Docker build only on main. Go.
+```text
+$codex-autoresearch
+Raise branch coverage for src/auth to at least 90% with meaningful tests.
 ```
 
-Strategies Codex will try: parallelizing test shards, caching node_modules/pip packages, skipping redundant steps on feature branches, splitting slow integration tests into a separate job.
-
-### Optimize a noisy multi-metric scheduler
-
-Use `metrics_json` when one scalar cannot describe success. This is common for schedulers, route planners, solvers, recommender systems, or any workflow where several business metrics move together and individual metrics have run-to-run noise.
-
-```
-You:   $codex-autoresearch
-       Improve my CP-SAT course scheduler. The verify command prints JSON metrics.
-       Keep hard conflicts at zero, reduce late events and room waste, and use
-       the overall judge score as the primary metric.
-
-Codex: Found `scripts/schedule_metrics.py` and sample cases under tests/cases/.
-
-       Confirmed:
-       - Target: improve schedule quality while preserving feasibility
-       - Metric: overall judge score, direction: higher
-       - Verify: `python3 scripts/schedule_metrics.py --json`
-       - Also keeping: hard_conflicts == 0, unsatisfied_constraints == 0
-
-       Need to confirm:
-       - Should I run the full case suite or the fastest representative case?
-       - Run mode: foreground or background?
-
-You:   Use the representative case first. Background. Go.
+```text
+Scope: tests/auth, src/auth
+Verify: python3 scripts/branch_coverage.py
+Direction: higher
+Target: 90
+Guard: python3 -m pytest -q
 ```
 
-The verify command should print a JSON object as its final non-empty line:
+Coverage is the metric; the full test suite is the guard.
 
-```json
-{
-  "judge_score": 0.71,
-  "hard_conflicts": 0,
-  "unsatisfied_constraints": 0,
-  "late_events": 74,
-  "room_waste": 19470.0
-}
+## Reduce Latency
+
+```text
+$codex-autoresearch
+Bring the search benchmark p95 below 200 ms without changing responses.
 ```
 
-Internally this maps to `verify_format=metrics_json`, `primary_metric_key=judge_score`, acceptance criteria such as `hard_conflicts == 0`, and required keep criteria for feasibility invariants. Codex should optimize the primary score but mechanically reject any retained result that violates the hard constraints.
-
-### Make clippy happy in Rust
-
-```
-You:   $codex-autoresearch
-       Clean up all the clippy warnings in the Rust codebase
-
-Codex: Found 31 clippy warnings across src/.
-
-       Confirmed:
-       - Target: zero clippy warnings
-       - Metric: warning count, direction: lower
-       - Verify: cargo clippy output
-       - Guard: cargo test
-
-       Need to confirm:
-       - Should I also address `cargo clippy -- -W clippy::pedantic`?
-
-You:   No, just the default warnings. Go.
+```text
+Scope: src/search, migrations
+Verify: python3 benchmarks/search_p95.py
+Direction: lower
+Target: 200
+Guard: python3 -m pytest tests/search -q
 ```
 
----
+Stabilize fixtures, warmup, sample count, and machine load before launch. A noisy benchmark produces untrustworthy keeps and discards.
 
-## Fixing Broken Things
+## Optimize a Noisy Multi-Metric Scheduler
 
-Fix mode iterates until the error count reaches zero. It auto-detects what is broken.
-
-### Fix all pytest failures
-
-```
-You:   $codex-autoresearch
-       pytest is failing, 12 tests broken after the refactor
-
-Codex: I see 12 failures across tests/.
-
-       Confirmed:
-       - Target: make all pytest tests pass
-       - Current: 12 failures
-
-       Need to confirm:
-       - Should I also guard with ruff to avoid introducing lint issues?
-       - Fix all 12, or focus on a specific module first?
-
-You:   Fix all, yes guard with ruff. Go.
+```text
+$codex-autoresearch
+Raise judge_score to at least 0.80 while keeping hard schedule conflicts at zero.
 ```
 
-Stops automatically when all tests pass.
-
-### Fix TypeScript compilation errors
-
-```
-You:   $codex-autoresearch
-       tsc is throwing 28 errors after the dependency upgrade
-
-Codex: Found 28 type errors. Most are in src/api/ -- the new version
-       of express changed several type signatures.
-
-       Confirmed:
-       - Target: zero tsc errors
-       - Current: 28 errors
-
-       Need to confirm:
-       - Should I also run the test suite as a guard?
-
-You:   Yes. Go.
+```text
+Scope: src/scheduler, tests/cases
+Verify: python3 scripts/schedule_metrics.py
+Metric parser: JSON key judge_score
+Direction: higher
+Target: 0.80
+Guard: python3 scripts/check_schedule_constraints.py
 ```
 
-### Fix ESLint errors after config change
+The verify command may emit other numeric fields for diagnosis, but only `judge_score` drives keep or discard. The guard enforces feasibility. Fix seeds and representative cases before optimizing so noise does not decide which experiments survive.
 
-```
-You:   $codex-autoresearch
-       Switched to stricter ESLint config and now there are 94 violations
+## Reduce Binary Size
 
-Codex: Found 94 violations. Breakdown: 41 unused-vars, 23 no-explicit-any,
-       18 prefer-const, 12 other.
-
-       Confirmed:
-       - Target: zero ESLint violations
-       - Current: 94
-
-       Need to confirm:
-       - Should I also guard with tsc?
-       - Some unused-vars might indicate dead code -- remove or suppress?
-
-You:   Remove dead code. Guard with tsc. Go.
+```text
+$codex-autoresearch
+Reduce the release binary below 12 MB while all tests pass.
 ```
 
-### Fix Go vet warnings
-
-```
-You:   $codex-autoresearch
-       Clean up all go vet issues
-
-Codex: Found 7 go vet warnings across cmd/ and internal/.
-
-       Confirmed:
-       - Target: zero go vet warnings
-       - Current: 7
-
-You:   Go.
+```text
+Scope: src, Cargo.toml
+Verify: cargo build --release --quiet && python3 scripts/binary_size_mb.py
+Direction: lower
+Target: 12
+Guard: cargo test --quiet
 ```
 
----
+The verify command may build artifacts, but it must not modify tracked or untracked project files seen by Git. Put build output in ignored directories.
 
-## Hunting Bugs
+## Reproducible Security Findings
 
-Debug mode tests one hypothesis per iteration. Every finding needs evidence.
-
-### Intermittent 503 under load
-
-```
-You:   $codex-autoresearch
-       API returns 503 randomly under concurrent requests
-
-Codex: I see connection pooling in src/db/pool.ts, rate limiting in
-       src/middleware/, and 3 async handlers without error boundaries.
-
-       Confirmed:
-       - Symptom: intermittent 503 under concurrent load
-       - Scope: src/api/, src/db/, src/middleware/
-
-       Need to confirm:
-       - When did this start? After a specific change, or always?
-       - If I find the cause, should I also fix it?
-
-You:   Started after the connection pool refactor last week. Find cause first.
+```text
+$codex-autoresearch
+Reduce the deterministic critical finding count to 0 in src/api.
 ```
 
-Produces a findings directory with confirmed causes, disproven hypotheses, and recommended next steps.
-
-### Search returning duplicate results
-
-```
-You:   $codex-autoresearch
-       Paginated search results have duplicates when you go to page 2
-
-Codex: Found the search handler in src/api/search.ts.
-       It uses OFFSET/LIMIT pagination with a non-unique sort key.
-
-       Confirmed:
-       - Symptom: duplicate results on page 2+
-       - Scope: src/api/search.ts, src/db/queries/
-
-       Need to confirm:
-       - Is this happening on all search endpoints or just /search?
-
-You:   Just /search. Go.
+```text
+Scope: src/api, tests/security
+Verify: python3 scripts/critical_findings.py
+Direction: lower
+Target: 0
+Guard: npm test
 ```
 
-### Silent cron job failures
+Use only a scanner or test harness whose numeric output is stable. A broad subjective audit is better handled as ordinary Codex work.
 
-```
-You:   $codex-autoresearch
-       The nightly data sync job keeps failing silently, no errors in logs
+## Foreground With Steering
 
-Codex: Found the job in src/jobs/sync.ts. The catch block swallows
-       exceptions without logging.
-
-       Confirmed:
-       - Symptom: nightly job fails with no error output
-       - Scope: src/jobs/, src/services/sync/
-
-       Need to confirm:
-       - Should I also fix the error handling, or just diagnose?
-
-You:   Diagnose first, I'll fix separately.
+```text
+You: $codex-autoresearch reduce parser allocations from 14 to 5
+Codex: [shows baseline, target, scope, verify, guard, and mode]
+You: Foreground. Go.
 ```
 
----
+Pause through the normal Codex Goal controls when you want to redirect the strategy. On resume, the skill validates the event log before continuing.
 
-## Auditing for Vulnerabilities
+## Background Overnight
 
-Security mode is read-only by default. Every finding requires file:line evidence.
-
-### API injection audit
-
-```
-You:   $codex-autoresearch
-       Check our API layer for injection vulnerabilities
-
-Codex: Confirmed:
-       - Scope: src/api/ and src/middleware/ (14 files)
-       - Focus: SQL injection, XSS, input sanitization
-
-       Need to confirm:
-       - Report only, or also fix critical findings?
-       - Should I also cover auth/access control?
-
-You:   Report first, cover auth too.
+```text
+You: $codex-autoresearch get lint_warning_count to 0
+Codex: [shows confirmed run]
+You: Background with Full Access. Go.
 ```
 
-Produces a report with ranked findings, each with file:line reference and exploitation scenario.
+Later:
 
-### Audit changed files only
-
-```
-You:   $codex-autoresearch
-       Security check on just the files I changed this sprint
-
-Codex: I see 8 modified files since the last tag. 3 are in src/api/,
-       2 in src/auth/, 3 in tests/.
-
-       Confirmed:
-       - Scope: the 5 non-test modified files
-       - Focus: input validation, auth changes
-
-       Need to confirm:
-       - Include the test files in scope?
-
-You:   No, just the source files. Go.
+```text
+$codex-autoresearch show status
 ```
 
-### Audit and fix in one pass
+If blocked, provide a direction with resume:
 
-```
-You:   $codex-autoresearch
-       Find vulnerabilities and fix anything critical
-
-Codex: [runs security audit first]
-       Found 2 Critical, 3 High, 5 Medium findings.
-
-       Switching to fix mode for 2 Critical and 3 High findings.
-       ...
+```text
+$codex-autoresearch resume; generated files are authoritative, do not edit them
 ```
 
----
+## Review A Run
 
-## Planning When You Are Unsure
-
-Plan mode helps you figure out what to measure and how. It never modifies code.
-
-### Not sure what metric to use
-
-```
-You:   $codex-autoresearch
-       I want to make our API faster but I don't know where to start
-
-Codex: I scanned the repo. API layer is in src/api/ with Express + Prisma.
-
-       Need to confirm:
-       - What matters more: p95 latency, throughput, or cold start?
-       - Should I benchmark the whole API or specific endpoints?
-
-You:   p95 latency, the /search endpoint is the worst.
-
-Codex: Proposed configuration:
-       - Goal: Reduce /search p95 latency
-       - Scope: src/api/search.ts, src/db/queries/, src/middleware/
-       - Metric: p95 latency (ms), direction: lower
-       - Verify: npm run bench:search 2>&1 | grep p95 | awk '{print $2}'
-       - Guard: npm test
-
-       Dry-run result: verify command outputs 847 (ms).
-       Ready to paste into a loop invocation.
+```text
+$codex-autoresearch show experiment history
 ```
 
-### Want to improve code quality
+The history table includes baselines, retained experiments, discarded trials, terminal events, metrics, and descriptions. For a shareable visual snapshot:
 
-```
-You:   $codex-autoresearch
-       The codebase feels messy, what should I clean up first?
-
-Codex: I scanned the repo. Here's what I found:
-       - 47 `any` types in TypeScript
-       - 6 files with cyclomatic complexity > 20
-       - 12% of src/ has no test coverage
-       - 23 Webpack build warnings
-
-       Which of these matters most to you?
-
-You:   Start with the `any` types.
-
-Codex: [generates config for eliminating any types]
+```text
+$codex-autoresearch generate an HTML report
 ```
 
-### Want to optimize database performance
+The report is regenerated from validated events and does not participate in resume or recovery.
 
-```
-You:   $codex-autoresearch
-       Help me figure out how to make our database queries faster
+## Metric Script Patterns
 
-Codex: Found 14 query files in src/db/. The /search endpoint runs
-       3 JOINs with no EXPLAIN analysis. Two queries use SELECT *.
+Scalar final line:
 
-       Need to confirm:
-       - Focus on query execution time, or total endpoint latency?
-       - Can I add indexes to the schema?
-
-You:   Total endpoint latency. Yes you can add indexes.
-
-Codex: [generates config with endpoint latency as metric]
+```python
+print(error_count)
 ```
 
----
+JSON final line:
 
-## Releasing with Confidence
+```python
+import json
 
-Ship mode detects what you are releasing and generates a verification checklist.
-
-### Ship a PR
-
-```
-You:   $codex-autoresearch
-       Ship it
-
-Codex: Detected: PR to main with 3 commits.
-
-       Confirmed:
-       - Type: code PR
-       - Target: main branch
-
-       Need to confirm:
-       - Dry run first, or go live?
-       - Post-ship monitoring? (5 min / 15 min / skip)
-
-You:   Dry run first.
+print(json.dumps({"error_count": error_count, "passed": passed}))
 ```
 
-### Check readiness without shipping
-
-```
-You:   $codex-autoresearch
-       Are we ready to deploy?
-
-Codex: Running readiness checklist...
-       - Tests: 142/142 passing
-       - Types: clean
-       - Lint: clean
-       - Build: succeeds
-       - No uncommitted changes
-       - Branch is up to date with main
-
-       All checks pass. Ready to ship when you are.
-```
-
----
-
-## Chaining Modes
-
-Modes compose naturally through sequential invocations.
-
-### Debug then fix
-
-```
-You:   $codex-autoresearch
-       API returns 503 randomly under load
-       [debug mode finds: pool exhaustion, missing error boundary]
-
-You:   $codex-autoresearch
-       Fix the bugs you just found
-       [fix mode reads debug findings, repairs them one by one]
-```
-
-### Plan then loop
-
-```
-You:   $codex-autoresearch
-       I want to reduce our API latency but not sure how
-       [plan mode produces config]
-
-You:   $codex-autoresearch
-       Run the plan you made
-       [loop mode executes with the generated config]
-```
-
-### Audit then fix
-
-```
-You:   $codex-autoresearch
-       Audit the auth system, then fix anything critical
-       [security mode audits, switches to fix mode for Critical/High]
-```
-
----
-
-## CI/CD Mode (exec)
-
-Non-interactive mode for automation pipelines. All config upfront, JSON output, exit codes.
-
-### Reduce type errors in GitHub Actions
-
-```yaml
-- name: Reduce type errors
-  run: |
-    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
-    $codex-autoresearch
-    Mode: exec
-    Goal: Reduce type errors
-    Scope: src/**/*.ts
-    Metric: type error count
-    Direction: lower
-    Verify: tsc --noEmit 2>&1 | grep -c error
-    Iterations: 20
-    PROMPT
-  continue-on-error: true
-```
-
-Exit codes: 0 = improved, 1 = no improvement, 2 = hard blocker.
-
-### Raise coverage in GitLab CI
-
-```yaml
-optimize-coverage:
-  script:
-    - |
-      codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
-      $codex-autoresearch
-      Mode: exec
-      Goal: Raise test coverage
-      Scope: src/
-      Metric: coverage percentage
-      Direction: higher
-      Verify: pytest --cov=src --cov-report=term 2>&1 | grep TOTAL | awk '{print $NF}'
-      Guard: ruff check .
-      Iterations: 15
-      PROMPT
-  allow_failure: true
-```
-
-### Nightly lint cleanup
-
-```yaml
-- name: Nightly lint cleanup
-  run: |
-    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
-    $codex-autoresearch
-    Mode: exec
-    Goal: Eliminate ESLint violations
-    Scope: src/
-    Metric: violation count
-    Direction: lower
-    Verify: npx eslint src/ --format compact 2>&1 | tail -1 | grep -oP '\\d+ problem'
-    Guard: npm run test:unit
-    Iterations: 30
-    PROMPT
-  schedule:
-    - cron: '0 3 * * *'
-```
-
----
-
-## MCP Integration
-
-MCP (Model Context Protocol) servers extend Codex's capabilities. These recipes show how to combine autoresearch with MCP tools.
-
-### Framework docs lookup during optimization
-
-If you have an MCP docs server configured (e.g., for React, Django, or Express):
-
-```
-You:   $codex-autoresearch
-       Optimize our React component rendering performance
-
-Codex: [during ideation, queries MCP docs server for React.memo,
-       useMemo, and useCallback best practices]
-       [uses documentation insights to generate better hypotheses]
-```
-
-The agent consults MCP docs automatically when it encounters framework-specific patterns it needs to understand better. No special configuration needed beyond having the MCP server available.
-
-### Database EXPLAIN queries during latency optimization
-
-If you have an MCP database server configured:
-
-```
-You:   $codex-autoresearch
-       Reduce /search endpoint p95 latency from 800ms to 200ms
-
-Codex: [runs EXPLAIN via MCP database server to identify slow queries]
-       [uses query plans to generate targeted index and query optimizations]
-```
-
-### API testing during security audits
-
-If you have an MCP API testing server configured:
-
-```
-You:   $codex-autoresearch Mode: security
-       Audit our REST API for injection vulnerabilities
-
-Codex: [uses MCP API server to send test payloads during audit]
-       [validates findings with actual API responses, not just code analysis]
-```
-
----
-
-## Choosing Verify and Guard Commands
-
-The protocol is language-agnostic. Only the commands change.
-
-### By language
-
-| Language | Common verify | Common guard |
-|----------|--------------|--------------|
-| TypeScript | `npx tsc --noEmit 2>&1 \| grep -c error` | `npm run test:unit` |
-| Python | `pytest -q 2>&1 \| tail -1` | `ruff check .` |
-| Go | `go vet ./... 2>&1 \| wc -l` | `go test ./...` |
-| Rust | `cargo clippy 2>&1 \| grep -c warning` | `cargo test` |
-| Java | `mvn compile 2>&1 \| grep -c ERROR` | `mvn test` |
-
-### By metric type
-
-| What you track | Verify command pattern | Guard pattern |
-|----------------|----------------------|---------------|
-| Error count | Run the tool, count errors in output | Run test suite |
-| Coverage % | Run coverage tool, extract percentage | Run linter |
-| Latency (ms) | Run benchmark, extract p95/p99 | Run functional tests |
-| Warning count | Run build/lint, count warnings | Run test suite |
-| File size | Build output, measure artifact size | Run smoke test |
-
-### Writing a good verify command
-
-Requirements:
-- Must output a single number (or a line containing a number Codex can extract)
-- Must be deterministic (same input = same output)
-- Must be fast (minutes, not hours -- fast verification = more experiments)
-- Must not require user interaction
-
-### Compound guards
-
-Chain multiple safety checks with `&&`:
-
-```
-Guard: npx tsc --noEmit && npm run test:unit && npm run lint
-```
-
-All must pass for the guard to pass.
+The JSON form requires an explicit metric key such as `error_count`. Extra fields remain diagnostic and do not become hidden secondary acceptance rules.

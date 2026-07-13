@@ -1,8 +1,8 @@
 interface:
   display_name: "Codex Autoresearch"
-  short_description: "Autonomous improve-verify loops for Codex"
+  short_description: "Reach measurable goals through verified experiments"
   brand_color: "#2563EB"
-  default_prompt: "Use $codex-autoresearch to improve a measurable goal through verified experiments."
+  default_prompt: "Use $codex-autoresearch to reach a numeric repository goal through verified experiments."
 
 policy:
   allow_implicit_invocation: false

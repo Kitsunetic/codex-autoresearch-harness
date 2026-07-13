@@ -1,220 +1,97 @@
-<p align="center">
-  <img src="../../image/banner.png" width="700" alt="Codex Autoresearch">
-</p>
+# Codex Autoresearch
 
-<h2 align="center"><b>Zielen. Iterieren. Ankommen.</b></h2>
+[English](../../README.md) | **Deutsch**
 
-<p align="center">
-  <i>Autonomes, zielgesteuertes Experimentieren für Codex.</i>
-</p>
+Eine autonome, messbare Experimentierschleife für Codex.
 
-<p align="center">
-  <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
-  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
-  <a href="../../LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
-</p>
+Nenne Codex ein numerisches Ziel. Codex untersucht das Repository, bestätigt den Versuchsaufbau, ändert genau eine Sache, misst, behält Verbesserungen, macht Fehlschläge rückgängig und wiederholt dies bis zum Ziel.
 
-<p align="center">
-  <a href="../../README.md">English</a> ·
-  <a href="README_ZH.md">🇨🇳 中文</a> ·
-  <a href="README_JA.md">🇯🇵 日本語</a> ·
-  <a href="README_KO.md">🇰🇷 한국어</a> ·
-  <a href="README_FR.md">🇫🇷 Français</a> ·
-  <b>🇩🇪 Deutsch</b> ·
-  <a href="README_ES.md">🇪🇸 Español</a> ·
-  <a href="README_PT.md">🇧🇷 Português</a> ·
-  <a href="README_RU.md">🇷🇺 Русский</a>
-</p>
-
----
-
-Die Idee: Sagen Sie Codex, was Sie verbessern möchten, und gehen Sie. Er ändert Ihren Code, überprüft das Ergebnis, behält oder verwirft, und wiederholt. Sie kommen zurück zu einem Experimentprotokoll und einer besseren Codebasis.
-
-Inspiriert von [Karpathys autoresearch](https://github.com/karpathy/autoresearch), verallgemeinert über ML hinaus auf alles, was sich mechanisch verifizieren lässt: Testabdeckung, Typfehler, Latenz, Lint-Warnungen, Sicherheitsbefunde, Release-Bereitschaft — wenn ein Befehl feststellen kann, ob es besser wurde, kann die Schleife darauf iterieren.
+Geeignet für fehlgeschlagene Tests, Coverage, Typfehler, Warnungen, Latenz, Binärgröße und reproduzierbare Sicherheitsbefunde.
 
 ## Schnellstart
 
-> [!IMPORTANT]
-> Starte Codex mit Full Access:
->
-> ```bash
-> codex --dangerously-bypass-approvals-and-sandbox
-> ```
->
-> Nutze dies vor autoresearch, damit foreground und background am reibungslosesten funktionieren.
+In Codex installieren:
 
 ```text
-# In Codex installieren (empfohlen)
 $skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-Öffnen Sie Ihr Projekt und legen Sie los:
+Ein sauberes Git-Repository mit Full Access öffnen:
 
-```
-Du:    $codex-autoresearch
-       Ich will alle `any`-Typen in meinem TypeScript-Code loswerden
-
-Codex: Ich habe 47 `any`-Vorkommen in src/**/*.ts gefunden.
-       Results-Verzeichnis: ./autoresearch-results/
-       Metrik: `any`-Anzahl (aktuell: 47), Richtung: niedriger
-       Verifikation: grep-Zählung + tsc --noEmit als guard
-       Ausführungsmodus: foreground oder background?
-
-Du:    Background, go. Lass es über Nacht laufen.
-
-Codex: Starte Hintergrundlauf — Baseline: 47. Iteriere.
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-Starten Sie Background-Läufe aus einer vertrauenswürdigen **Full Access** Codex-Sitzung.
+Dann aufrufen:
 
-Jede Verbesserung baut auf. Jeder Fehlschlag wird zurückgesetzt. Alles wird protokolliert.
-
-Manuelle Kopier-, Symlink- und User-Scope-Optionen stehen in [INSTALL.md](../INSTALL.md). Vollständiges Handbuch in [GUIDE.md](../GUIDE.md).
-
-## So funktioniert es
-
-```
-Du sagst einen Satz  →  Codex scannt & bestätigt  →  Du sagst "go"
-                                                         |
-                                          +--------------+--------------+
-                                          |                             |
-                                     foreground                    background
-                                   (aktuelle Sitzung)          (abgekoppelt, über Nacht)
-                                          |                             |
-                                          +--------------+--------------+
-                                                         |
-                                                         v
-                                               +-------------------+
-                                               |   Die Schleife    |
-                                               |                   |
-                                               |  eine Sache ändern|
-                                               |  trial commit     |
-                                               |  verify ausführen |
-                                               |  besser? behalten |
-                                               |  schlechter? rev. |
-                                               |  Ergebnis loggen  |
-                                               |  wiederholen      |
-                                               +-------------------+
+```text
+$codex-autoresearch error_count aus `python3 scripts/score.py` auf 0 senken
 ```
 
-Das war's. Sie wählen eines von beiden: Foreground behält die Schleife in Ihrer aktuellen Sitzung, Background übergibt sie an einen abgekoppelten Prozess, damit Sie schlafen können. Dieselbe Schleife, aber sie laufen nicht gleichzeitig.
+Vor dem ersten Schreibzugriff bestätigt Codex Ziel, Bereich, Ausgangswert, Zielwert, Messbefehl, optionalen Guard und foreground/background.
 
-## Was Sie sagen vs was passiert
+## Schleife
 
-| Was Sie sagen | Was passiert |
-|---------------|-------------|
-| „Verbessere meine Testabdeckung" | Iteriert bis zum Ziel oder Unterbrechung |
-| „Behebe die 12 fehlschlagenden Tests" | Repariert einen nach dem anderen bis null übrig |
-| „Warum gibt die API 503 zurück?" | Sucht die Ursache mit falsifizierbaren Hypothesen |
-| „Ist dieser Code sicher?" | STRIDE + OWASP-Audit, jeder Befund mit Code-Beleg |
-| „Ausliefern" | Prüft Bereitschaft, erstellt Checkliste, kontrolliert Release |
-| „Ich will optimieren, weiß aber nicht was" | Analysiert das Repo, schlägt Metriken vor, generiert Konfiguration |
-
-Im Hintergrund ordnet Codex Ihren Satz einem von 7 Modi zu (loop, plan, debug, fix, security, ship, exec). Sie müssen nie einen auswählen.
-
-## Was Codex automatisch ermittelt
-
-Sie schreiben keine Konfiguration. Codex leitet alles aus Ihrem Satz und Ihrem Repo ab:
-
-| Was benötigt wird | Wie es ermittelt wird | Beispiel |
-|-------------------|----------------------|----------|
-| Ziel | Ihr Satz | „alle any-Typen loswerden" |
-| Umfang | Scannt die Repo-Struktur | `src/**/*.ts` |
-| Metrik | Schlägt basierend auf Ziel + Tooling vor | any-Anzahl (aktuell: 47) |
-| Richtung | Leitet ab aus „verbessern" / „reduzieren" / „eliminieren" | niedriger |
-| Verifikation | Ordnet dem Repo-Tooling zu | `grep`-Zählung + `tsc --noEmit` |
-| Guard | Schlägt eine bereits in der Baseline bestehende Regressionsprüfung vor | `npm test` |
-
-Vor dem Start zeigt Codex immer, was er gefunden hat, und bittet um Bestätigung. Dann wählen Sie foreground oder background und sagen „go".
-Standardmäßig bleibt das Results-Verzeichnis im Startkontext: Wenn Sie Codex in einem Git-Repo gestartet haben, ist dessen Repo-Root der Standard-Workspace-Root; wenn Sie Codex außerhalb eines Git-Repos gestartet haben, ist das aktuelle Startverzeichnis der Standard-Workspace-Root. Codex sollte dies nicht stillschweigend auf ein übergeordnetes Verzeichnis ausweiten, es sei denn, Sie bestätigen ausdrücklich einen größeren Multi-Repo-Workspace. Die Bestätigungsübersicht sollte vor dem Start immer das gewählte Results-Verzeichnis anzeigen.
-
-## Wenn es hakt
-
-Statt blind zu wiederholen, eskaliert die Schleife:
-
-| Auslöser | Aktion |
-|----------|--------|
-| 3 aufeinanderfolgende Fehlschläge | **REFINE** — innerhalb der aktuellen Strategie anpassen |
-| 5 aufeinanderfolgende Fehlschläge | **PIVOT** — einen grundlegend anderen Ansatz versuchen |
-| 2 PIVOTs ohne Fortschritt | **Websuche** — nach externen Lösungen suchen |
-| 3 PIVOTs ohne Fortschritt | **Stopp** — meldet, dass menschliches Eingreifen nötig ist |
-
-Ein einziger Erfolg setzt alle Zähler zurück.
-
-## Ergebnisprotokoll
-
-Jede Iteration wird in `autoresearch-results/results.tsv` aufgezeichnet:
-
-```
-iteration  commit   metric  delta   status    description
-0          a1b2c3d  47      0       baseline  initial any count
-1          b2c3d4e  41      -6      keep      replace any in auth module
-2          -        49      +8      discard   generic wrapper introduced new anys
-3          d4e5f6g  38      -3      keep      type-narrow API response handlers
+```text
+Evidenz prüfen -> eine Hypothese ändern -> Commit und Messung
+                                             |
+                                besser + Guard erfolgreich: behalten
+                                sonst: git revert
+                                             |
+                                      protokollieren, wiederholen
 ```
 
-Fehlgeschlagene Experimente werden in git zurückgesetzt, bleiben aber im Protokoll. Das Protokoll ist die eigentliche Audit-Spur, während `autoresearch-results/state.json` der Resume-Snapshot ist.
+Codex verantwortet Hypothesen und Codeänderungen. Das Kontrollskript verantwortet Git-Grenzen, Messung, Rollback und Zustand.
 
-## Weitere Funktionen
+## Foreground und Background
 
-Details in [GUIDE.md](../GUIDE.md):
+| | Foreground | Background |
+|---|---|---|
+| Ausführung | Aktuelle Codex-Aufgabe | Separater Controller |
+| Fortsetzung | Offizielles Codex Goal | Ein `codex exec` Worker pro Iteration |
+| Geeignet für | Live beobachten und lenken | Lange oder nächtliche Läufe |
+| Steuerung | Goal pausieren/fortsetzen | Status/stop/resume mit `$codex-autoresearch` |
 
-- **Laufübergreifendes Lernen** — Erkenntnisse aus vergangenen Läufen beeinflussen die zukünftige Hypothesengenerierung
-- **Parallele Experimente** — bis zu 3 Hypothesen gleichzeitig über git worktrees testen
-- **Sitzungswiederaufnahme** — unterbrochene Läufe setzen beim letzten konsistenten Zustand fort
-- **CI/CD-Modus** (`exec`) — nicht-interaktiv, JSON-Ausgabe, für Automatisierungspipelines
-- **Doppelte Prüfung** — getrenntes verify (hat es sich verbessert?) und guard (ist etwas kaputtgegangen?)
+Foreground wird durch das offizielle Goal fortgesetzt. Background erstellt kein Goal; der Controller setzt den Lauf fort. Die Installation ändert keine Codex-Einstellungen.
 
-## FAQ
+## Ergebnisse
 
-**Es macht nur kleine Änderungen. Kann es größere Ideen ausprobieren?**
-Standardmäßig bevorzugt die Schleife kleine, überprüfbare Schritte — das ist beabsichtigt. Aber sie kann auch größer denken: Beschreiben Sie eine umfangreichere Hypothese in Ihrem Prompt (z.B. „ersetze den Attention-Mechanismus durch Linear Attention und führe die vollständige Evaluation durch"), und sie wird das als ein einzelnes Experiment verifizieren. Am besten funktioniert es, wenn der Mensch die Forschungsrichtung vorgibt und der Agent die intensive Ausführung und Analyse übernimmt.
+Nicht eingecheckte Dateien liegen unter `autoresearch-results/`:
 
-**Ist das eher für Engineering-Optimierung oder für Forschung?**
-Am stärksten ist es, wenn Ziel und Metrik klar sind — Abdeckung erhöhen, Fehler reduzieren, Latenz senken. Wenn die Forschungsrichtung selbst noch unklar ist, nutzen Sie zuerst den `plan`-Modus zum Erkunden, dann wechseln Sie zu `loop`, sobald Sie wissen, was Sie messen wollen. Betrachten Sie es als Mensch-KI-Zusammenarbeit: Sie liefern das Urteil, der Agent liefert die Iterationsgeschwindigkeit.
+| Pfad | Zweck |
+|---|---|
+| `run.json` | Bestätigte, unveränderliche Konfiguration |
+| `events.jsonl` | Nur angehängte Zustands- und Audit-Historie |
+| `logs/` | Vollständige Mess-, Guard- und Worker-Ausgaben |
+| `runtime.json` | Background-Prozesszustand |
+| `runtime.log` | Controller-Lebenszyklus |
 
-**Wie stoppe ich es?** Foreground: Codex unterbrechen. Background: `$codex-autoresearch` und dann Stopp anfordern.
+`events.jsonl` ist die einzige Zustandsquelle. Fehlende, beschädigte oder widersprüchliche Daten führen zu einem klaren Fehler und werden nicht erraten oder rekonstruiert.
 
-**Kann es nach einer Unterbrechung fortsetzen?** Ja. Es setzt automatisch von `autoresearch-results/state.json` fort.
+## Verlauf und Bericht
 
-**Wie nutze ich es in CI?** `Mode: exec` mit `codex exec`. Gesamte Konfiguration vorab, JSON-Ausgabe, Exit-Codes 0/1/2.
-
-## Dokumentation
-
-| Dok | Inhalt |
-|-----|--------|
-| [INSTALL.md](../INSTALL.md) | Skill Installer, manuelles Kopieren, User-Scope-Installation und Entwicklungs-Symlink |
-| [GUIDE.md](../GUIDE.md) | Vollständiges Handbuch: Modi, Konfigurationsfelder, Sicherheitsmodell, erweiterte Nutzung |
-| [EXAMPLES.md](../EXAMPLES.md) | Rezepte nach Domäne: Abdeckung, Performance, Typen, Sicherheit usw. |
-
-## Danksagungen
-
-Aufgebaut auf Ideen von [Karpathys autoresearch](https://github.com/karpathy/autoresearch). Die Codex-Skills-Plattform stammt von [OpenAI](https://openai.com).
-
-## Citation
-
-Wenn Sie Codex Autoresearch in Ihrer Arbeit verwenden, zitieren Sie es bitte so:
-
-```bibtex
-@misc{codex-autoresearch,
-  author = {Li, Linxiao},
-  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
-  year = {2026},
-  publisher = {GitHub},
-  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
-}
+```text
+$codex-autoresearch show experiment history
+$codex-autoresearch export experiment history as TSV
+$codex-autoresearch generate an HTML report
 ```
 
-## Star History
+Tabelle und HTML-Bericht werden aus validierten Ereignissen erzeugt. Der HTML-Schnappschuss liegt unter `autoresearch-results/report.html` und ist weder Laufzeitstatus noch Wiederherstellungsquelle.
 
-<a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
- </picture>
-</a>
+## Garantien
 
-## Lizenz
+- Neue Läufe benötigen einen sauberen, benannten Git-Branch.
+- Ein Lauf verwaltet ein Repository, eine Metrik und einen Zielwert.
+- Jedes Experiment wird committed; Fehlschläge werden mit `git revert` rückgängig gemacht.
+- Änderungen außerhalb des Bereichs, Git-Drift, ungültige Metriken, Befehlsfehler, Timeouts und Rollback-Fehler stoppen mit Log-Pfad.
+- `complete` wird nur gesetzt, wenn die behaltene Metrik den Zielwert erreicht.
 
-MIT — siehe [LICENSE](../../LICENSE).
+## Voraussetzungen
+
+- Aktuelle Codex CLI mit Skills und Goals
+- Python 3.11+
+- Git
+
+Siehe [Installation](../INSTALL.md), [Benutzerhandbuch](../GUIDE.md) und [Beispiele](../EXAMPLES.md).
+
+MIT-Lizenz. Inspiriert von [Karpathys autoresearch](https://github.com/karpathy/autoresearch).

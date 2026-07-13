@@ -2,68 +2,44 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODE="${1:-}"
-KEEP_TEMP=1
-DANGEROUS=1
+MODE="${1:-help}"
+CLEAN=0
 
-usage() {
-  cat <<'EOF'
-Usage:
-  bash scripts/run_skill_e2e.sh exec-smoke [--sandboxed] [--clean]
-  bash scripts/run_skill_e2e.sh multi-repo-smoke [--clean]
-  bash scripts/run_skill_e2e.sh runtime-smoke [--clean]
-  bash scripts/run_skill_e2e.sh interactive-smoke [--clean]
-
-Modes:
-  exec-smoke         Prepare a disposable repo, run `codex exec` against the real skill,
-                     and validate artifacts with check_skill_invariants.py.
-  multi-repo-smoke   Prepare a disposable workspace with primary + companion repos,
-                     run the helper scripts through the workspace-owned artifact
-                     path, and validate canonical context + repo-local pointers.
-  runtime-smoke      Prepare a disposable repo, install the skill, exercise the
-                     detached runtime launch/status/stop path with a fake Codex,
-                     and validate runtime-control artifacts automatically.
-  interactive-smoke  [MANUAL] Prepare a disposable repo and print the exact manual
-                     smoke-test steps for the interactive wizard + explicit
-                     foreground/background choice. Not automated — requires a human
-                     to drive the Codex session and visually verify behavior.
-
-Flags:
-  --dangerous        Legacy alias for the default exec-smoke behavior:
-                     pass --dangerously-bypass-approvals-and-sandbox to codex exec
-                     inside the disposable temp repo created by this harness.
-  --sandboxed        Force exec-smoke to use --sandbox workspace-write instead. This is useful for
-                     reproducing sandbox-related blockers, but may fail protocol checks
-                     because git commit/revert writes inside .git are sandboxed.
-  --clean            Delete the temp repo after the command finishes successfully.
-EOF
-}
-
-if [[ -z "$MODE" ]]; then
-  usage
-  exit 1
+if [[ "$MODE" != "help" ]]; then
+  shift
 fi
-shift || true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dangerous)
-      DANGEROUS=1
-      ;;
-    --sandboxed)
-      DANGEROUS=0
-      ;;
     --clean)
-      KEEP_TEMP=0
+      CLEAN=1
       ;;
     *)
-      echo "Unknown flag: $1" >&2
-      usage
-      exit 1
+      echo "Unknown option: $1" >&2
+      exit 2
       ;;
   esac
   shift
 done
+
+usage() {
+  cat <<'EOF'
+Usage:
+  bash scripts/run_skill_e2e.sh foreground-smoke [--clean]
+  bash scripts/run_skill_e2e.sh runtime-smoke [--clean]
+  bash scripts/run_skill_e2e.sh real-foreground [--clean]
+  bash scripts/run_skill_e2e.sh real-background [--clean]
+
+Modes:
+  foreground-smoke  Deterministic init/finish/complete run in a disposable installed skill repo.
+  runtime-smoke     Deterministic two-worker detached controller run with a local test worker.
+  real-foreground   Prepare a disposable repo and open the real Codex TUI for a human-driven Goal run.
+  real-background   Launch real authenticated codex exec workers and wait for target completion.
+
+The deterministic modes validate control-plane mechanics and run in CI. The real modes require
+local Codex authentication and are never represented as mock/model validation.
+EOF
+}
 
 require_tool() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -72,356 +48,360 @@ require_tool() {
   fi
 }
 
-copy_fixture() {
-  local fixture_name="$1"
-  local dest_repo="$2"
-  mkdir -p "$dest_repo"
-  cp -R "$ROOT/tests/e2e-fixtures/$fixture_name/." "$dest_repo/"
-}
-
 copy_skill() {
-  local dest_skill_root="$1"
-  mkdir -p "$(dirname "$dest_skill_root")"
-  cp -R "$ROOT" "$dest_skill_root"
-  rm -rf \
-    "$dest_skill_root/.git" \
-    "$dest_skill_root/.pytest_cache" \
-    "$dest_skill_root/.venv" \
-    "$dest_skill_root/autoresearch-results" \
-    "$dest_skill_root/debug" \
-    "$dest_skill_root/fix" \
-    "$dest_skill_root/security" \
-    "$dest_skill_root/ship"
-  find "$dest_skill_root" -type d -name '__pycache__' -prune -exec rm -rf {} +
+  local destination="$1"
+  mkdir -p "$destination/references" "$destination/scripts" "$destination/agents"
+  cp "$ROOT/SKILL.md" "$destination/SKILL.md"
+  cp "$ROOT/references/"*.md "$destination/references/"
+  cp \
+    "$ROOT/scripts/autoresearch.py" \
+    "$ROOT/scripts/autoresearch_core.py" \
+    "$ROOT/scripts/autoresearch_report.py" \
+    "$destination/scripts/"
+  cp "$ROOT/agents/openai.yaml" "$destination/agents/openai.yaml"
 }
 
-init_git_repo() {
-  local repo="$1"
+prepare_repo() {
+  local fixture="$1"
+  local temporary="$2"
+  local repo="$temporary/repo"
+  cp -R "$ROOT/tests/e2e-fixtures/$fixture" "$repo"
+  find "$repo" -type d -name __pycache__ -prune -exec rm -rf {} +
+  find "$repo" -type f -name '*.pyc' -delete
+  copy_skill "$repo/.agents/skills/codex-autoresearch"
   git -C "$repo" init -b main >/dev/null
-  git -C "$repo" config user.name e2e-bot
+  git -C "$repo" config user.name e2e
   git -C "$repo" config user.email e2e@example.com
   git -C "$repo" add .
   git -C "$repo" commit -m "fixture baseline" >/dev/null
-}
-
-prepare_skill_repo() {
-  local fixture_name="$1"
-  local tmpdir="$2"
-  local repo="$tmpdir/repo"
-  copy_fixture "$fixture_name" "$repo"
-  copy_skill "$repo/.agents/skills/codex-autoresearch"
-  init_git_repo "$repo"
   printf '%s\n' "$repo"
 }
 
-write_sleeping_fake_codex() {
-  local path="$1"
-  cat > "$path" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" != "exec" ]]; then
-  echo "expected codex exec" >&2
-  exit 64
-fi
-shift
-repo=""
-prompt_from_stdin=0
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -C) repo="$2"; shift 2 ;;
-    -) prompt_from_stdin=1; shift ;;
-    *) shift ;;
-  esac
-done
-if [[ "$prompt_from_stdin" -ne 1 ]]; then
-  echo "expected prompt from stdin" >&2
-  exit 65
-fi
-cat >/dev/null
-if [[ -n "$repo" ]]; then
-  cd "$repo"
-fi
-sleep 30
-EOF
-  chmod +x "$path"
-}
-
-cleanup_if_requested() {
-  local tmpdir="$1"
-  if [[ "$KEEP_TEMP" -eq 0 ]]; then
-    rm -rf "$tmpdir"
+cleanup() {
+  local temporary="$1"
+  if [[ "$CLEAN" -eq 1 ]]; then
+    rm -rf "$temporary"
   else
-    echo "Temp repo kept at: $tmpdir"
+    echo "Demo repository kept at: $temporary/repo"
   fi
 }
 
-sha256_file() {
-  local path="$1"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$path" | awk '{print $1}'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$path" | awk '{print $1}'
-  else
-    python3 - "$path" <<'PY'
-import hashlib
-import sys
-
-with open(sys.argv[1], "rb") as handle:
-    print(hashlib.sha256(handle.read()).hexdigest())
-PY
-  fi
-}
-
-run_exec_smoke() {
-  require_tool codex
-  require_tool python3
-  require_tool git
-
-  local tmpdir repo e2e_dir last_message event_log codex_flags lessons_sha
-  tmpdir="$(mktemp -d)"
-  repo="$(prepare_skill_repo "exec_marker_reduction" "$tmpdir")"
-
-  e2e_dir="$tmpdir/e2e"
-  mkdir -p "$e2e_dir"
-  last_message="$e2e_dir/last-message.txt"
-  event_log="$e2e_dir/events.jsonl"
-  lessons_sha="$(sha256_file "$repo/autoresearch-results/lessons.md")"
-
-  codex_flags=(exec -C "$repo" --json --output-last-message "$last_message")
-  if [[ "$DANGEROUS" -eq 1 ]]; then
-    codex_flags+=(--dangerously-bypass-approvals-and-sandbox)
-  else
-    codex_flags+=(--sandbox workspace-write)
-  fi
-
-  if ! codex "${codex_flags[@]}" - < "$repo/prompt.txt" | tee "$event_log"; then
-    echo "codex exec failed; temp repo left at: $tmpdir" >&2
-    exit 1
-  fi
-
-  python3 "$ROOT/scripts/check_skill_invariants.py" exec \
-    --repo "$repo" \
-    --last-message-file "$last_message" \
-    --event-log "$event_log" \
-    --lessons-sha256 "$lessons_sha" \
-    --expect-prev-results \
-    --expect-prev-state \
-    --expect-improvement
-
-  echo "exec smoke: OK"
-  cleanup_if_requested "$tmpdir"
-}
-
-run_multi_repo_smoke() {
-  require_tool python3
-  require_tool git
-
-  local tmpdir workspace primary companion skill_root
-  local primary_base companion_base primary_head companion_head
-  tmpdir="$(mktemp -d)"
-  workspace="$tmpdir/workspace"
-  primary="$workspace/primary"
-  companion="$workspace/companion"
-
-  mkdir -p "$workspace"
-  copy_fixture "exec_marker_reduction" "$primary"
-  rm -rf "$primary/autoresearch-results"
-  copy_skill "$primary/.agents/skills/codex-autoresearch"
-  init_git_repo "$primary"
-
-  mkdir -p "$companion/pkg"
-  cat > "$companion/pkg/helper.py" <<'EOF'
-def status_banner() -> str:
-    return "companion:baseline"
-EOF
-  init_git_repo "$companion"
-
-  skill_root="$primary/.agents/skills/codex-autoresearch"
-  primary_base="$(git -C "$primary" rev-parse --short HEAD)"
-  companion_base="$(git -C "$companion" rev-parse --short HEAD)"
-
-  python3 "$skill_root/scripts/autoresearch_init_run.py" \
-    --repo "$primary" \
-    --workspace-root "$workspace" \
-    --mode exec \
-    --goal "Reduce TODO_REMOVE markers across the workspace while keeping companion provenance in sync" \
-    --scope "src/**/*.py" \
-    --companion-repo-scope "$companion=pkg/**/*.py" \
-    --metric-name "TODO_REMOVE marker count" \
-    --direction lower \
-    --verify "python3 primary/scripts/count_markers.py" \
-    --verify-cwd workspace_root \
-    --guard "python3 -m py_compile primary/src/app.py companion/pkg/helper.py" \
-    --baseline-metric 2 \
-    --baseline-commit "$primary_base" \
-    --baseline-description "workspace baseline" \
-    --repo-commit "$companion=$companion_base" >/dev/null
-
-  python3 - "$primary/src/app.py" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-path.write_text(text.replace("TODO_REMOVE", "READY", 1), encoding="utf-8")
-PY
-  git -C "$primary" add src/app.py
-  git -C "$primary" commit -m "Reduce one TODO_REMOVE marker" >/dev/null
-  primary_head="$(git -C "$primary" rev-parse --short HEAD)"
-
-  python3 - "$companion/pkg/helper.py" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-path.write_text(text.replace("baseline", "improved"), encoding="utf-8")
-PY
-  git -C "$companion" add pkg/helper.py
-  git -C "$companion" commit -m "Update companion provenance" >/dev/null
-  companion_head="$(git -C "$companion" rev-parse --short HEAD)"
-
-  python3 "$skill_root/scripts/autoresearch_record_iteration.py" \
-    --results-path "$workspace/autoresearch-results/results.tsv" \
-    --status keep \
-    --metric 1 \
-    --commit "$primary_head" \
-    --repo-commit "$companion=$companion_head" \
-    --guard pass \
-    --description "reduced markers across the managed workspace" >/dev/null
-
-  python3 "$skill_root/scripts/autoresearch_exec_state.py" \
-    --repo-root "$workspace" \
-    --cleanup >/dev/null
-
-  python3 "$skill_root/scripts/check_skill_invariants.py" exec \
-    --repo "$primary" \
-    --expect-improvement
-
-  python3 - "$workspace" "$primary" "$companion" <<'PY'
+assert_status() {
+  local control="$1"
+  local repo="$2"
+  local expected="$3"
+  python3 - "$control" "$repo" "$expected" <<'PY'
 import json
+import subprocess
+import sys
+
+control, repo, expected = sys.argv[1:]
+payload = json.loads(
+    subprocess.check_output(
+        [sys.executable, control, "status", "--repo", repo],
+        text=True,
+        encoding="utf-8",
+    )
+)
+if payload["status"] != expected:
+    raise SystemExit(f"expected status {expected}, got {payload}")
+PY
+}
+
+run_foreground_smoke() {
+  require_tool python3
+  require_tool git
+  local temporary repo control
+  temporary="$(mktemp -d)"
+  repo="$(prepare_repo interactive_unittest_fix "$temporary")"
+  control="$repo/.agents/skills/codex-autoresearch/scripts/autoresearch.py"
+
+  python3 "$control" init \
+    --repo "$repo" \
+    --goal "Reduce the unit-test failure count to zero" \
+    --scope src \
+    --metric-name failure_count \
+    --direction lower \
+    --verify "python3 scripts/score.py" \
+    --metric-key failure_count \
+    --target 0 >/dev/null
+
+  python3 - "$repo/src/math_utils.py" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+old = "return a - b"
+if text.count(old) != 1:
+    raise SystemExit(f"expected exactly one fixture bug in {path}")
+path.write_text(text.replace(old, "return a + b"), encoding="utf-8")
+PY
+  python3 "$control" finish --repo "$repo" --description "correct integer addition" >/dev/null
+  assert_status "$control" "$repo" complete
+  python3 -m unittest discover -s "$repo/tests" -q
+  echo "foreground smoke: OK"
+  cleanup "$temporary"
+}
+
+write_test_worker() {
+  local destination="$1"
+  cat > "$destination" <<'PY'
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
-workspace = Path(sys.argv[1]).resolve()
-primary = Path(sys.argv[2]).resolve()
-companion = Path(sys.argv[3]).resolve()
-artifact_root = workspace / "autoresearch-results"
-context = json.loads((artifact_root / "context.json").read_text(encoding="utf-8"))
 
-if Path(context["workspace_root"]).resolve() != workspace:
-    raise SystemExit("canonical context workspace_root mismatch")
-if Path(context["primary_repo"]).resolve() != primary:
-    raise SystemExit("canonical context primary_repo mismatch")
-
-for repo in (primary, companion):
-    pointer_path = repo / ".codex-autoresearch" / "pointer.json"
-    payload = json.loads(pointer_path.read_text(encoding="utf-8"))
-    if Path(payload["artifact_root"]).resolve() != artifact_root:
-        raise SystemExit(f"pointer artifact_root mismatch for {repo}")
-    if Path(payload["workspace_root"]).resolve() != workspace:
-        raise SystemExit(f"pointer workspace_root mismatch for {repo}")
+arguments = sys.argv[1:]
+repo = Path(arguments[arguments.index("-C") + 1])
+prompt = sys.stdin.read()
+match = re.search(r"^Control script: (.+)$", prompt, re.MULTILINE)
+if match is None:
+    raise SystemExit("worker prompt did not contain Control script")
+control = match.group(1).strip()
+status = json.loads(
+    subprocess.check_output(
+        [sys.executable, control, "status", "--repo", str(repo)],
+        text=True,
+        encoding="utf-8",
+    )
+)
+value = int(status["metric"]["current"])
+next_value = value - 1
+(repo / "src" / "value.txt").write_text(f"{next_value}\n", encoding="utf-8")
+subprocess.check_call(
+    [
+        sys.executable,
+        control,
+        "finish",
+        "--repo",
+        str(repo),
+        "--description",
+        f"reduce counter to {next_value}",
+    ]
+)
 PY
-
-  echo "multi-repo smoke: OK"
-  cleanup_if_requested "$tmpdir"
+  chmod +x "$destination"
 }
 
-run_interactive_smoke() {
-  require_tool python3
-  require_tool git
+wait_for_terminal_status() {
+  local control="$1"
+  local repo="$2"
+  local timeout_seconds="$3"
+  python3 - "$control" "$repo" "$timeout_seconds" <<'PY'
+import json
+import subprocess
+import sys
+import time
 
-  local tmpdir repo
-  tmpdir="$(mktemp -d)"
-  repo="$(prepare_skill_repo "interactive_unittest_fix" "$tmpdir")"
+control, repo, timeout_text = sys.argv[1:]
+deadline = time.monotonic() + int(timeout_text)
+last = None
+while time.monotonic() < deadline:
+    last = json.loads(
+        subprocess.check_output(
+            [sys.executable, control, "status", "--repo", repo],
+            text=True,
+            encoding="utf-8",
+        )
+    )
+    if last["status"] in {"complete", "blocked", "error", "stopped"}:
+        print(json.dumps(last, sort_keys=True))
+        raise SystemExit(0)
+    time.sleep(0.2)
+raise SystemExit(f"timed out waiting for terminal status; last={last}")
+PY
+}
 
-  cat <<EOF
-Interactive smoke repo prepared at:
-  $repo
+assert_completed_repo() {
+  local control="$1"
+  local repo="$2"
+  local expected_iterations="$3"
+  python3 - "$control" "$repo" "$expected_iterations" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
 
-1. Start Codex:
-   codex --dangerously-bypass-approvals-and-sandbox --no-alt-screen -C "$repo"
-
-2. Paste this prompt:
-$(sed 's/^/   /' "$repo/prompt.txt")
-
-3. Expected behavior before launch:
-   - Codex scans the repo.
-   - Codex asks at least one confirmation question before editing.
-   - Codex requires an explicit run-mode choice: foreground or background.
-   - Choose: foreground
-   - You reply: go
-
-4. Expected behavior after "go":
-   - Codex stays in the same foreground session and iterates live.
-   - Codex does not create autoresearch-results/launch.json, autoresearch-results/runtime.json, or autoresearch-results/runtime.log.
-   - It iterates autonomously until tests pass or you interrupt it.
-
-5. After you stop the run, validate artifacts:
-   python3 "$ROOT/scripts/check_skill_invariants.py" interactive --repo "$repo" --verify-cmd "python3 -m unittest discover -s tests -q" --expect-improvement
-EOF
-
-  cleanup_if_requested "$tmpdir"
+control, repo_text, expected_text = sys.argv[1:]
+repo = Path(repo_text)
+expected = int(expected_text)
+status = json.loads(
+    subprocess.check_output(
+        [sys.executable, control, "status", "--repo", str(repo)],
+        text=True,
+        encoding="utf-8",
+    )
+)
+if status["status"] != "complete" or status["metric"]["current"] != status["metric"]["target"]:
+    raise SystemExit(f"run did not reach its target: {status}")
+if status["iterations"] != expected:
+    raise SystemExit(f"expected {expected} iterations, got {status['iterations']}")
+events = [
+    json.loads(line)
+    for line in Path(status["events_path"]).read_text(encoding="utf-8").splitlines()
+]
+if events[0]["event"] != "baseline" or events[-1]["event"] != "complete":
+    raise SystemExit(f"invalid event boundary: {events}")
+if sum(event["event"] == "iteration" for event in events) != expected:
+    raise SystemExit(f"iteration event count mismatch: {events}")
+if any(event["event"] == "iteration" and event["outcome"] != "keep" for event in events):
+    raise SystemExit(f"demo unexpectedly retained a discard: {events}")
+dirty = subprocess.check_output(
+    ["git", "-C", str(repo), "status", "--short"],
+    text=True,
+    encoding="utf-8",
+).strip()
+if dirty:
+    raise SystemExit(f"demo repository is dirty after completion: {dirty}")
+subjects = subprocess.check_output(
+    ["git", "-C", str(repo), "log", "--format=%s", f"-{expected + 1}"],
+    text=True,
+    encoding="utf-8",
+)
+if subjects.count("autoresearch:") < expected:
+    raise SystemExit(f"missing retained autoresearch commits: {subjects}")
+worker_logs = sorted((repo / "autoresearch-results" / "logs").glob("worker-*.jsonl"))
+if status["mode"] == "background" and len(worker_logs) != expected:
+    raise SystemExit(f"expected {expected} worker logs, found {worker_logs}")
+if any(path.stat().st_size == 0 for path in worker_logs):
+    raise SystemExit(f"empty worker log found: {worker_logs}")
+PY
 }
 
 run_runtime_smoke() {
   require_tool python3
   require_tool git
+  local temporary repo control worker terminal
+  temporary="$(mktemp -d)"
+  repo="$(prepare_repo counter_reduction "$temporary")"
+  control="$repo/.agents/skills/codex-autoresearch/scripts/autoresearch.py"
+  worker="$temporary/test-codex"
+  write_test_worker "$worker"
 
-  local tmpdir repo skill_root fake_codex status_json
-  tmpdir="$(mktemp -d)"
-  repo="$(prepare_skill_repo "interactive_unittest_fix" "$tmpdir")"
-
-  skill_root="$repo/.agents/skills/codex-autoresearch"
-  fake_codex="$tmpdir/fake-codex"
-  write_sleeping_fake_codex "$fake_codex"
-
-  python3 "$skill_root/scripts/autoresearch_runtime_ctl.py" launch \
+  python3 "$control" launch \
     --repo "$repo" \
-    --workspace-root "$repo" \
-    --original-goal "Reduce failing tests in this repo" \
-    --mode loop \
-    --goal "Reduce failing tests" \
-    --scope "src/**/*.py tests/**/*.py" \
-    --metric-name "failure count" \
+    --goal "Reduce the counter to zero" \
+    --scope src \
+    --metric-name counter \
     --direction lower \
-    --verify "python3 -m unittest discover -s tests -q" \
-    --guard "python3 -m py_compile src tests" \
-    --codex-bin "$fake_codex" >/dev/null
+    --verify "python3 scripts/score.py" \
+    --target 0 \
+    --codex-bin "$worker" >/dev/null
 
-  status_json="$(python3 "$skill_root/scripts/autoresearch_runtime_ctl.py" status --repo "$repo")"
-  python3 - "$status_json" <<'PY'
+  terminal="$(wait_for_terminal_status "$control" "$repo" 20)"
+  python3 - "$terminal" <<'PY'
 import json
 import sys
 
 payload = json.loads(sys.argv[1])
-if payload.get("status") != "running":
-    raise SystemExit(f"expected running runtime, got {payload!r}")
+if payload["status"] != "complete" or payload["iterations"] != 2:
+    raise SystemExit(f"unexpected runtime result: {payload}")
 PY
-
-  python3 "$skill_root/scripts/autoresearch_runtime_ctl.py" stop --repo "$repo" >/dev/null
-  python3 "$skill_root/scripts/check_skill_invariants.py" runtime --repo "$repo"
-
+  assert_completed_repo "$control" "$repo" 2
   echo "runtime smoke: OK"
-  cleanup_if_requested "$tmpdir"
+  cleanup "$temporary"
+}
+
+run_real_foreground() {
+  require_tool codex
+  require_tool python3
+  require_tool git
+  local temporary repo control prompt terminal iterations
+  temporary="$(mktemp -d)"
+  repo="$(prepare_repo interactive_unittest_fix "$temporary")"
+  control="$repo/.agents/skills/codex-autoresearch/scripts/autoresearch.py"
+  prompt="$(cat "$repo/prompt.txt")"
+  echo "Starting real foreground demo in: $repo"
+  echo "Submit the skill prompt, confirm foreground, then approve with go."
+  if ! TERM="${CODEX_E2E_TERM:-xterm-256color}" codex \
+    --dangerously-bypass-approvals-and-sandbox --no-alt-screen -C "$repo" \
+    "$prompt"; then
+    cleanup "$temporary"
+    return 1
+  fi
+  terminal="$(python3 "$control" status --repo "$repo")"
+  if ! iterations="$(python3 -c '
+import json, sys
+status = json.loads(sys.argv[1])
+if status["status"] != "complete" or status["iterations"] < 1:
+    raise SystemExit(f"real foreground run did not complete: {status}")
+print(status["iterations"])
+' "$terminal")"; then
+    cleanup "$temporary"
+    return 1
+  fi
+  if ! assert_completed_repo "$control" "$repo" "$iterations"; then
+    cleanup "$temporary"
+    return 1
+  fi
+  if ! python3 -m unittest discover -s "$repo/tests" -q; then
+    cleanup "$temporary"
+    return 1
+  fi
+  echo "real foreground: OK ($iterations iterations)"
+  cleanup "$temporary"
+}
+
+run_real_background() {
+  require_tool codex
+  require_tool python3
+  require_tool git
+  local temporary repo control terminal
+  temporary="$(mktemp -d)"
+  repo="$(prepare_repo counter_reduction "$temporary")"
+  control="$repo/.agents/skills/codex-autoresearch/scripts/autoresearch.py"
+  echo "Starting real background demo in: $repo"
+
+  python3 "$control" launch \
+    --repo "$repo" \
+    --goal "Reduce the integer in src/value.txt to zero through focused experiments" \
+    --scope src \
+    --metric-name counter \
+    --direction lower \
+    --verify "python3 scripts/score.py" \
+    --target 0 \
+    --execution-policy danger-full-access >/dev/null
+
+  terminal="$(wait_for_terminal_status "$control" "$repo" 900)"
+  python3 - "$terminal" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+if payload["status"] != "complete" or payload["metric"]["current"] != 0:
+    raise SystemExit(f"real background run did not complete: {payload}")
+print(f"real background: OK ({payload['iterations']} iterations)")
+PY
+  iterations="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["iterations"])' "$terminal")"
+  assert_completed_repo "$control" "$repo" "$iterations"
+  cleanup "$temporary"
 }
 
 case "$MODE" in
-  exec-smoke)
-    run_exec_smoke
-    ;;
-  multi-repo-smoke)
-    run_multi_repo_smoke
+  foreground-smoke)
+    run_foreground_smoke
     ;;
   runtime-smoke)
     run_runtime_smoke
     ;;
-  interactive-smoke)
-    run_interactive_smoke
+  real-foreground)
+    run_real_foreground
+    ;;
+  real-background)
+    run_real_background
+    ;;
+  help|-h|--help)
+    usage
     ;;
   *)
     echo "Unknown mode: $MODE" >&2
-    usage
-    exit 1
+    usage >&2
+    exit 2
     ;;
 esac

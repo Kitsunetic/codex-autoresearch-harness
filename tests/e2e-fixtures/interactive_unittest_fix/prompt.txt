@@ -1,2 +1,1 @@
-$codex-autoresearch
-python3 -m unittest discover -s tests -q is failing in this repository. Fix it and keep iterating until it passes cleanly.
+$codex-autoresearch reduce `python3 scripts/score.py` failure_count to 0 and keep the unit test passing

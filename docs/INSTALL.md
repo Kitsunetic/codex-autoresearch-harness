@@ -1,27 +1,20 @@
 # Installation
 
-`codex-autoresearch` is a Markdown-first Codex skill package with bundled helper scripts. No build step, no third-party runtime dependencies.
+## Requirements
 
-## Prerequisites
+- a current Codex CLI release with Skills and Goals;
+- Python 3.11 or newer;
+- Git;
+- a configured Git author and committer identity;
+- a clean, named branch for each new run.
 
-- Codex with skills enabled.
-- macOS or Linux.
-- Git for iterative modes, because the loop commits, verifies, and reverts experiments.
-- Python 3.11+ for the bundled helper scripts.
-- A working `codex` CLI in `PATH` for managed background runs and `exec` mode.
+Full Access is recommended because autoresearch creates and reverts Git commits:
 
-> [!IMPORTANT]
-> Recommended launch command:
->
-> ```bash
-> codex --dangerously-bypass-approvals-and-sandbox
-> ```
->
-> Use this before starting autoresearch for the smoothest foreground and background experience.
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
 
-## Install
-
-### Via Skill Installer (recommended)
+## Skill Installer
 
 In Codex, run:
 
@@ -29,93 +22,54 @@ In Codex, run:
 $skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-Then use `$codex-autoresearch`.
+Then open the target repository and invoke `$codex-autoresearch`.
 
-### Manual repo-local skill install
+## Manual Repository Install
 
-```bash
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
-```
-
-### Manual user-scope skill install
+Use this when the skill should travel with one project:
 
 ```bash
 git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch ~/.agents/skills/codex-autoresearch
+mkdir -p your-project/.agents/skills
+cp -R codex-autoresearch your-project/.agents/skills/codex-autoresearch
 ```
 
-### Symlink for live development
+## Manual User Install
+
+Use this for all projects owned by the current user:
 
 ```bash
 git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-ln -s $(pwd)/codex-autoresearch your-project/.agents/skills/codex-autoresearch
+mkdir -p ~/.agents/skills
+cp -R codex-autoresearch ~/.agents/skills/codex-autoresearch
 ```
 
-Codex supports symlinked skill folders. Edits to the source repo take effect immediately.
+Do not install both a repository copy and a user copy unless you intentionally want two independently discovered versions.
 
-## Skill Discovery Locations
-
-Codex scans these directories for skills:
-
-| Scope | Location | Use case |
-|-------|----------|----------|
-| Repo (CWD) | `$CWD/.agents/skills/` | Skills for the current working directory |
-| Repo (parent) | `$CWD/../.agents/skills/` | Shared skills in a parent folder (monorepo) |
-| Repo (root) | `$REPO_ROOT/.agents/skills/` | Root skills available to all subfolders |
-| User | `~/.agents/skills/` | Personal skills across all projects |
-| Admin | `/etc/codex/skills/` | Machine-wide defaults for all users |
-| System | Bundled with Codex | Built-in skills by OpenAI |
-
-## Verify Installation
-
-Open Codex in the target repo and verify:
-
-1. Type `$` and confirm `codex-autoresearch` appears in the skill list.
-2. Invoke the skill:
-
-```text
-$codex-autoresearch
-I want to reduce my failing tests to zero
-```
-
-Expected behavior:
-
-- Codex recognizes the skill,
-- loads `SKILL.md`,
-- loads the relevant workflow for the request,
-- and collects any missing fields via the wizard.
-
-## Continuity
-
-Autoresearch prepares resume and background handoff support automatically when a run starts. No manual setup is normally needed.
-
-For troubleshooting, you can prepare it directly:
+## Development Symlink
 
 ```bash
-python3 /absolute/path/to/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
+git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
+mkdir -p your-project/.agents/skills
+ln -s "$(pwd)/codex-autoresearch" your-project/.agents/skills/codex-autoresearch
 ```
 
-Or inspect the current state:
+Edits to the source checkout are then visible through the symlink.
 
-```bash
-python3 /absolute/path/to/codex-autoresearch/scripts/autoresearch_hooks_ctl.py status
-```
+## Verify
 
-## Updating
+Open Codex in the target repository, type `$`, and select `codex-autoresearch`. A valid installation should:
 
-If installed by copy: re-clone and replace the installed folder.
+1. inspect the repository without editing it;
+2. propose a metric, target, scope, guard, and run mode;
+3. wait for approval before creating `autoresearch-results/`.
 
-If installed by symlink: `git pull` in the source repo. Changes are live immediately.
+The skill does not modify Codex configuration.
 
-## Disable Without Deleting
+## Update
 
-Use `~/.codex/config.toml`:
+- Skill installer: run the installer again with the same repository URL.
+- Copied install: replace the installed `codex-autoresearch` directory with a fresh checkout.
+- Symlink: run `git pull` in the source checkout.
 
-```toml
-[[skills.config]]
-path = "/absolute/path/to/codex-autoresearch/SKILL.md"
-enabled = false
-```
-
-Use `/skills` to verify the skill is disabled.
+Keep only one discovered copy for a given scope to avoid duplicate skill entries.

@@ -1,6 +1,6 @@
 # Contributing
 
-Codex Autoresearch is intentionally small. Contributions should strengthen the single experiment loop rather than add another mode, recovery heuristic, or duplicate state layer.
+Codex Autoresearch Harness is intentionally small. Contributions should strengthen the single experiment loop rather than add another mode, recovery heuristic, or duplicate state layer.
 
 Read the architecture and design rules below before changing code or protocol.
 

@@ -1,4 +1,4 @@
-# Codex Autoresearch
+# Codex Autoresearch Harness
 
 [English](../../README.md) | **Deutsch**
 
@@ -13,7 +13,7 @@ Geeignet für fehlgeschlagene Tests, Coverage, Typfehler, Warnungen, Latenz, Bin
 In Codex installieren:
 
 ```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+$skill-installer install https://github.com/Kitsunetic/codex-autoresearch-harness
 ```
 
 Ein sauberes Git-Repository mit Full Access öffnen:
@@ -25,7 +25,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 Dann aufrufen:
 
 ```text
-$codex-autoresearch error_count aus `python3 scripts/score.py` auf 0 senken
+$codex-autoresearch-harness error_count aus `python3 scripts/score.py` auf 0 senken
 ```
 
 Vor dem ersten Schreibzugriff bestätigt Codex Ziel, Bereich, Ausgangswert, Zielwert, Messbefehl, optionalen Guard, foreground/background und die Orchestrierungsrichtlinie.
@@ -50,7 +50,7 @@ Codex verantwortet Hypothesen und Codeänderungen. Das Kontrollskript verantwort
 | Ausführung | Aktuelle Codex-Aufgabe | Separater Controller |
 | Fortsetzung | Offizielles Codex Goal | Ein `codex exec` Worker pro Iteration |
 | Geeignet für | Live beobachten und lenken | Lange oder nächtliche Läufe |
-| Steuerung | Goal pausieren/fortsetzen | Status/stop/resume mit `$codex-autoresearch` |
+| Steuerung | Goal pausieren/fortsetzen | Status/stop/resume mit `$codex-autoresearch-harness` |
 
 Foreground wird durch das offizielle Goal fortgesetzt. Background erstellt kein Goal; der Controller setzt den Lauf fort. Die Installation ändert keine Codex-Einstellungen.
 
@@ -73,9 +73,9 @@ Nicht eingecheckte Dateien liegen unter `autoresearch-results/`:
 ## Verlauf und Bericht
 
 ```text
-$codex-autoresearch show experiment history
-$codex-autoresearch export experiment history as TSV
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness show experiment history
+$codex-autoresearch-harness export experiment history as TSV
+$codex-autoresearch-harness generate an HTML report
 ```
 
 Tabelle und HTML-Bericht werden aus validierten Ereignissen erzeugt. Der HTML-Schnappschuss liegt unter `autoresearch-results/report.html` und ist weder Laufzeitstatus noch Wiederherstellungsquelle.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Command line control plane for codex-autoresearch."""
+"""Command line control plane for codex-autoresearch-harness."""
 
 from __future__ import annotations
 
@@ -990,7 +990,7 @@ def worker_prompt(repo: Path, script: Path, run: dict[str, Any], state: RunState
     )
     guard = run["guard"] or "none"
     routing = orchestration_prompt(run["orchestration_policy"])
-    return f"""You are one background iteration worker for a codex-autoresearch run.
+    return f"""You are one background iteration worker for a codex-autoresearch-harness run.
 
 Repository: {repo}
 Control script: {script}

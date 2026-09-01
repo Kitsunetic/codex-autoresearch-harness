@@ -50,7 +50,7 @@ if [[ "$translation_count" -ne 8 ]]; then
   exit 1
 fi
 
-grep -q '^name: codex-autoresearch$' "$ROOT/SKILL.md" || {
+grep -q '^name: codex-autoresearch-harness$' "$ROOT/SKILL.md" || {
   echo "SKILL.md name metadata is missing or invalid" >&2
   exit 1
 }

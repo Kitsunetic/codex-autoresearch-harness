@@ -1,8 +1,8 @@
 interface:
-  display_name: "Codex Autoresearch"
+  display_name: "Codex Autoresearch Harness"
   short_description: "Reach measurable goals through verified experiments"
   brand_color: "#2563EB"
-  default_prompt: "Use $codex-autoresearch to reach a numeric repository goal through verified experiments."
+  default_prompt: "Use $codex-autoresearch-harness to reach a numeric repository goal through verified experiments."
 
 policy:
   allow_implicit_invocation: false

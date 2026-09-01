@@ -1,4 +1,4 @@
-# Codex Autoresearch
+# Codex Autoresearch Harness
 
 [English](../../README.md) | **한국어**
 
@@ -13,7 +13,7 @@ Codex를 위한 자율적이고 측정 가능한 실험 루프입니다.
 Codex에서 설치합니다.
 
 ```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+$skill-installer install https://github.com/Kitsunetic/codex-autoresearch-harness
 ```
 
 깨끗한 Git 저장소를 Full Access로 여는 것을 권장합니다.
@@ -25,7 +25,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 그다음 실행합니다.
 
 ```text
-$codex-autoresearch `python3 scripts/score.py`의 error_count를 0으로 줄여줘
+$codex-autoresearch-harness `python3 scripts/score.py`의 error_count를 0으로 줄여줘
 ```
 
 첫 쓰기 전에 목표, 수정 범위, 기준값, 목표값, 측정 명령, 선택적 guard, foreground/background, orchestration 정책을 확인합니다.
@@ -50,7 +50,7 @@ Codex는 가설과 코드 수정을 담당하고, 제어 스크립트는 Git 경
 | 실행 위치 | 현재 Codex 작업 | 분리된 controller |
 | 지속 실행 | 공식 Codex Goal | 반복마다 하나의 `codex exec` worker |
 | 용도 | 실시간 관찰과 지시 | 장시간 또는 야간 실행 |
-| 제어 | Goal pause/resume | `$codex-autoresearch` status/stop/resume |
+| 제어 | Goal pause/resume | `$codex-autoresearch-harness` status/stop/resume |
 
 Foreground는 공식 Goal로 계속 실행됩니다. Background는 Goal 없이 controller가 지속 실행합니다. 설치 과정에서 Codex 설정은 변경되지 않습니다.
 
@@ -73,9 +73,9 @@ Foreground는 공식 Goal로 계속 실행됩니다. Background는 Goal 없이 c
 ## 기록과 보고서
 
 ```text
-$codex-autoresearch show experiment history
-$codex-autoresearch export experiment history as TSV
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness show experiment history
+$codex-autoresearch-harness export experiment history as TSV
+$codex-autoresearch-harness generate an HTML report
 ```
 
 기록 표와 HTML은 검증된 이벤트에서 생성됩니다. HTML 스냅샷은 `autoresearch-results/report.html`에 저장되며 실행 상태나 복구에는 사용되지 않습니다.

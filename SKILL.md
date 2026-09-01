@@ -1,11 +1,11 @@
 ---
-name: codex-autoresearch
+name: codex-autoresearch-harness
 description: "Run autonomous, measurable experiments in a Git repository: change one hypothesis, verify a numeric metric, keep improvements, and revert failures. Use when the user wants Codex to keep iterating toward a numeric target in the foreground or as a detached background run. Do not use for ordinary one-shot coding, open-ended work without a mechanical metric, or non-Git directories."
 metadata:
   short-description: "Run measurable autonomous experiments"
 ---
 
-# Codex Autoresearch
+# Codex Autoresearch Harness
 
 Turn a repo-level goal into a controlled loop:
 
@@ -61,7 +61,7 @@ python3 <skill-root>/scripts/autoresearch.py init \
   [--orchestration-policy <direct|lazycodex>]
 ```
 
-Then call `get_goal`. Reuse a matching unfinished Goal, otherwise call `create_goal`. The Goal objective must identify this as codex-autoresearch, include the returned run id, metric and target, and say to continue the validated experiment loop until terminal status. If a different unfinished Goal exists, stop and explain the conflict. Official Codex Goal continuation owns foreground persistence; this skill does not install hooks or modify Codex configuration.
+Then call `get_goal`. Reuse a matching unfinished Goal, otherwise call `create_goal`. The Goal objective must identify this as codex-autoresearch-harness, include the returned run id, metric and target, and say to continue the validated experiment loop until terminal status. If a different unfinished Goal exists, stop and explain the conflict. Official Codex Goal continuation owns foreground persistence; this skill does not install hooks or modify Codex configuration.
 
 If Goal tools are unavailable, do not claim the foreground run can continue autonomously across turns. Explain that the installed Codex does not expose the required Goal capability.
 

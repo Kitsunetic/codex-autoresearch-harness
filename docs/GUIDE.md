@@ -1,13 +1,13 @@
 # User Guide
 
-Codex Autoresearch runs one measurable experiment loop in one Git repository. It is deliberately smaller than a general task orchestrator: Codex reasons about the code, while the skill enforces measurement, commit ownership, rollback, and a durable audit trail.
+Codex Autoresearch Harness runs one measurable experiment loop in one Git repository. It is deliberately smaller than a general task orchestrator: Codex reasons about the code, while the skill enforces measurement, commit ownership, rollback, and a durable audit trail.
 
 ## Start A Run
 
 Invoke the skill with a result, not an implementation plan:
 
 ```text
-$codex-autoresearch reduce scripts/score.py error_count to 0
+$codex-autoresearch-harness reduce scripts/score.py error_count to 0
 ```
 
 Codex scans the repository and confirms eight values before writing:
@@ -100,9 +100,9 @@ Background defaults to Full Access so the worker can commit and revert. You may 
 Use the skill itself for control:
 
 ```text
-$codex-autoresearch show the background status
-$codex-autoresearch stop the background run
-$codex-autoresearch resume with this direction: focus on parser allocation
+$codex-autoresearch-harness show the background status
+$codex-autoresearch-harness stop the background run
+$codex-autoresearch-harness resume with this direction: focus on parser allocation
 ```
 
 The foreground task does not need to poll the controller.
@@ -146,9 +146,9 @@ If the current run is still active, stop a background run first. For foreground,
 Use the same skill entry to inspect any initialized run:
 
 ```text
-$codex-autoresearch show experiment history
-$codex-autoresearch export experiment history as TSV
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness show experiment history
+$codex-autoresearch-harness export experiment history as TSV
+$codex-autoresearch-harness generate an HTML report
 ```
 
 History renders a terminal table from the fully validated event log. TSV is emitted on request for spreadsheets or scripts. The HTML command writes a self-contained snapshot to `autoresearch-results/report.html` with the metric trajectory, keep/discard timeline, commits, and log links.

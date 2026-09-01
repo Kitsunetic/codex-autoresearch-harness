@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="image/banner.png" width="700" alt="Codex Autoresearch">
+  <img src="image/banner.png" width="700" alt="Codex Autoresearch Harness">
 </p>
 
 <h2 align="center"><b>Aim. Iterate. Arrive.</b></h2>
@@ -51,7 +51,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 Then invoke the skill:
 
 ```text
-You:   $codex-autoresearch
+You:   $codex-autoresearch-harness
        Reduce `python3 scripts/score.py` error_count to 0.
 
 Codex: Baseline: 5
@@ -96,7 +96,7 @@ The control script owns commits, verification, rollback, and state. Codex owns t
 | Runs in | Current Codex task | Detached controller |
 | Continuation | Official Codex Goal | One `codex exec` worker per iteration |
 | Best for | Watching and steering live | Long or overnight runs |
-| Control | Codex Goal pause/resume | Ask `$codex-autoresearch` for status, stop, or resume |
+| Control | Codex Goal pause/resume | Ask `$codex-autoresearch-harness` for status, stop, or resume |
 
 Foreground and background use the same experiment rules. A run uses one mode at a time. Foreground continuation uses a Codex Goal; background continuation belongs to the detached controller.
 
@@ -142,11 +142,11 @@ Run artifacts live in `autoresearch-results/` and stay uncommitted:
 Ask the skill to show the validated experiment history:
 
 ```text
-$codex-autoresearch show experiment history
+$codex-autoresearch-harness show experiment history
 ```
 
 ```text
-Codex Autoresearch
+Codex Autoresearch Harness
 Run: 0a516883  Status: complete  Mode: foreground
 Metric: error_count  2 -> 0  Target: 0 (lower is better)
 
@@ -162,14 +162,14 @@ SEQ  ITER  EVENT     PREVIOUS  TRIAL  RETAINED  DESCRIPTION
 The same validated events can be exported as TSV or rendered as a self-contained static report:
 
 ```text
-$codex-autoresearch export experiment history as TSV
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness export experiment history as TSV
+$codex-autoresearch-harness generate an HTML report
 ```
 
 The report is written to `autoresearch-results/report.html`. It is a replaceable snapshot, not runtime state.
 
 <p align="center">
-  <img src="image/autoresearch-report.png" width="900" alt="Codex Autoresearch HTML report showing metric trajectory and experiment history">
+  <img src="image/autoresearch-report.png" width="900" alt="Codex Autoresearch Harness HTML report showing metric trajectory and experiment history">
 </p>
 
 ## Safety Model
@@ -218,7 +218,7 @@ Each iteration creates or reverts a Git commit. Restricted sandboxes may block w
 
 **Can I stop and resume?**
 
-Yes. Interrupt or pause a foreground Goal. For background, invoke `$codex-autoresearch` and ask for status, stop, or resume with a new direction.
+Yes. Interrupt or pause a foreground Goal. For background, invoke `$codex-autoresearch-harness` and ask for status, stop, or resume with a new direction.
 
 **Can it run without Git or across several repos?**
 
@@ -235,9 +235,9 @@ Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch),
 ## Citation
 
 ```bibtex
-@misc{codex-autoresearch,
+@misc{codex-autoresearch-harness,
   author = {Li, Linxiao},
-  title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
+  title = {Codex Autoresearch Harness: Autonomous Goal-Driven Experimentation for Codex},
   year = {2026},
   publisher = {GitHub},
   url = {https://github.com/Kitsunetic/codex-autoresearch-harness}

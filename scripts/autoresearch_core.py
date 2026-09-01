@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strict state, command, and Git primitives for codex-autoresearch."""
+"""Strict state, command, and Git primitives for codex-autoresearch-harness."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ RUNTIME_LOG = "runtime.log"
 PROTECTED_PREFIXES = (
     RESULTS_DIR,
     ".git",
-    ".agents/skills/codex-autoresearch",
+    ".agents/skills/codex-autoresearch-harness",
 )
 TERMINAL_EVENTS = {"blocked", "complete", "error", "stopped"}
 ORCHESTRATION_POLICIES = {"direct", "lazycodex"}

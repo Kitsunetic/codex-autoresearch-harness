@@ -29,10 +29,11 @@ class StructureTest(unittest.TestCase):
 
     def test_skill_frontmatter_and_product_metadata(self) -> None:
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertTrue(skill.startswith("---\nname: codex-autoresearch\n"))
+        self.assertTrue(skill.startswith("---\nname: codex-autoresearch-harness\n"))
         self.assertRegex(skill, r"(?m)^description: .+measurable.+$")
         metadata = (ROOT / "agents" / "openai.yaml").read_text(encoding="utf-8")
-        self.assertIn('display_name: "Codex Autoresearch"', metadata)
+        self.assertIn('display_name: "Codex Autoresearch Harness"', metadata)
+        self.assertIn("$codex-autoresearch-harness", metadata)
         self.assertIn("allow_implicit_invocation: false", metadata)
 
     def test_local_markdown_links_resolve(self) -> None:

@@ -1,4 +1,4 @@
-# Codex Autoresearch
+# Codex Autoresearch Harness
 
 [English](../../README.md) | **日本語**
 
@@ -13,7 +13,7 @@ Codex のための、自律的で測定可能な実験ループです。
 Codex でインストールします。
 
 ```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+$skill-installer install https://github.com/Kitsunetic/codex-autoresearch-harness
 ```
 
 クリーンな Git リポジトリを Full Access で開くことを推奨します。
@@ -25,7 +25,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 次に実行します。
 
 ```text
-$codex-autoresearch `python3 scripts/score.py` の error_count を 0 にする
+$codex-autoresearch-harness `python3 scripts/score.py` の error_count を 0 にする
 ```
 
 最初の書き込み前に、目標、変更範囲、ベースライン、ターゲット、測定コマンド、任意の guard、foreground/background、orchestration 方針を確認します。
@@ -50,7 +50,7 @@ Codex が仮説とコード変更を担当し、制御スクリプトが Git 境
 | 実行場所 | 現在の Codex タスク | 独立 controller |
 | 継続 | 公式 Codex Goal | 1 反復につき 1 つの `codex exec` worker |
 | 用途 | ライブで監視・指示 | 長時間・夜間実行 |
-| 制御 | Goal の pause/resume | `$codex-autoresearch` で status/stop/resume |
+| 制御 | Goal の pause/resume | `$codex-autoresearch-harness` で status/stop/resume |
 
 Foreground は公式 Goal で継続します。Background は Goal を作らず controller が継続します。インストールによって Codex 設定は変更されません。
 
@@ -73,9 +73,9 @@ Foreground は公式 Goal で継続します。Background は Goal を作らず 
 ## 履歴とレポート
 
 ```text
-$codex-autoresearch show experiment history
-$codex-autoresearch export experiment history as TSV
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness show experiment history
+$codex-autoresearch-harness export experiment history as TSV
+$codex-autoresearch-harness generate an HTML report
 ```
 
 履歴表と HTML は検証済みイベントから生成されます。HTML スナップショットは `autoresearch-results/report.html` に保存され、実行状態や復旧には使用されません。

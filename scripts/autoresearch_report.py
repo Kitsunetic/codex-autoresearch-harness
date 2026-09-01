@@ -185,7 +185,7 @@ def render_history_table(
 
     baseline = _metric(events[0]["metric"])
     summary = [
-        "Codex Autoresearch",
+        "Codex Autoresearch Harness",
         f"Run: {run['run_id'][:8]}  Status: {state.status}  Mode: {run['mode']}",
         (
             f"Metric: {run['metric']['name']}  {baseline} -> {_metric(state.metric)}  "
@@ -426,7 +426,7 @@ def render_html_report(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="data:,">
-  <title>Codex Autoresearch Report - {_escape(run['goal'])}</title>
+  <title>Codex Autoresearch Harness Report - {_escape(run['goal'])}</title>
   <style>
     :root {{ color-scheme: light; --ink: #172033; --muted: #647084; --line: #d7dde7; --panel: #f6f8fb; --blue: #2563eb; --green: #15803d; --red: #b42318; --amber: #a15c00; }}
     * {{ box-sizing: border-box; }}

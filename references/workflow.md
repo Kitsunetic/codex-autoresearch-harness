@@ -1,6 +1,6 @@
 # Workflow
 
-Read this reference for every `$codex-autoresearch` invocation.
+Read this reference for every `$codex-autoresearch-harness` invocation.
 
 ## Fresh Run
 
@@ -37,7 +37,7 @@ After approval:
 
 1. Run `init` and surface any failure verbatim.
 2. If initialization reports `complete`, do not create a Goal.
-3. Otherwise reuse a matching official Goal or create one whose objective names codex-autoresearch, the run id, metric, and target.
+3. Otherwise reuse a matching official Goal or create one whose objective names codex-autoresearch-harness, the run id, metric, and target.
 4. Follow `experiment.md` until the event status is terminal.
 5. Keep normal Codex progress updates concise. The event log is the detailed audit trail.
 

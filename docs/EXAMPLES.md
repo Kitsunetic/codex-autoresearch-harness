@@ -5,7 +5,7 @@ These examples show the user prompt and the measurement contract Codex should co
 ## Fix Failing Cases
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Reduce `python3 scripts/score.py` error_count to 0. Keep pytest passing.
 ```
 
@@ -23,7 +23,7 @@ The score script should exit zero and report a numeric count even before the def
 ## Remove Type Errors
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Eliminate TypeScript errors under src without changing generated clients.
 ```
 
@@ -42,7 +42,7 @@ A project-owned counting script is more reliable than parsing changing compiler 
 ## Raise Coverage
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Raise branch coverage for src/auth to at least 90% with meaningful tests.
 ```
 
@@ -59,7 +59,7 @@ Coverage is the metric; the full test suite is the guard.
 ## Reduce Latency
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Bring the search benchmark p95 below 200 ms without changing responses.
 ```
 
@@ -76,7 +76,7 @@ Stabilize fixtures, warmup, sample count, and machine load before launch. A nois
 ## Optimize a Noisy Multi-Metric Scheduler
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Raise judge_score to at least 0.80 while keeping hard schedule conflicts at zero.
 ```
 
@@ -94,7 +94,7 @@ The verify command may emit other numeric fields for diagnosis, but only `judge_
 ## Reduce Binary Size
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Reduce the release binary below 12 MB while all tests pass.
 ```
 
@@ -111,7 +111,7 @@ The verify command may build artifacts, but it must not modify tracked or untrac
 ## Reproducible Security Findings
 
 ```text
-$codex-autoresearch
+$codex-autoresearch-harness
 Reduce the deterministic critical finding count to 0 in src/api.
 ```
 
@@ -128,7 +128,7 @@ Use only a scanner or test harness whose numeric output is stable. A broad subje
 ## Foreground With Steering
 
 ```text
-You: $codex-autoresearch reduce parser allocations from 14 to 5
+You: $codex-autoresearch-harness reduce parser allocations from 14 to 5
 Codex: [shows baseline, target, scope, verify, guard, and mode]
 You: Foreground. Go.
 ```
@@ -138,7 +138,7 @@ Pause through the normal Codex Goal controls when you want to redirect the strat
 ## Background Overnight
 
 ```text
-You: $codex-autoresearch get lint_warning_count to 0
+You: $codex-autoresearch-harness get lint_warning_count to 0
 Codex: [shows confirmed run]
 You: Background with Full Access. Go.
 ```
@@ -146,25 +146,25 @@ You: Background with Full Access. Go.
 Later:
 
 ```text
-$codex-autoresearch show status
+$codex-autoresearch-harness show status
 ```
 
 If blocked, provide a direction with resume:
 
 ```text
-$codex-autoresearch resume; generated files are authoritative, do not edit them
+$codex-autoresearch-harness resume; generated files are authoritative, do not edit them
 ```
 
 ## Review A Run
 
 ```text
-$codex-autoresearch show experiment history
+$codex-autoresearch-harness show experiment history
 ```
 
 The history table includes baselines, retained experiments, discarded trials, terminal events, metrics, and descriptions. For a shareable visual snapshot:
 
 ```text
-$codex-autoresearch generate an HTML report
+$codex-autoresearch-harness generate an HTML report
 ```
 
 The report is regenerated from validated events and does not participate in resume or recovery.

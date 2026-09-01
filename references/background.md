@@ -45,4 +45,6 @@ Workers receive the confirmed goal, current metric, target, scope, prior event h
 - edit run artifacts;
 - perform more than one finalized experiment.
 
+When `run.json` selects `lazycodex`, the worker also receives the structured routing contract from `experiment.md`. The worker remains the iteration owner: bounded children may inspect or edit within assigned paths, but only the worker may review the integrated diff and finalize the experiment.
+
 If a worker returns without a valid iteration or blocker event, the controller stops with a precise contract error. This prevents silent early exits and accidental infinite relaunch loops.

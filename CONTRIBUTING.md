@@ -37,6 +37,7 @@ Do not introduce a second state snapshot or reconstruct events from logs. Logs e
 - Keep references one level from `SKILL.md` and avoid duplicated rules.
 - Preserve one repository, one metric, one target, and one finalized experiment per iteration.
 - Do not add custom Codex hooks. Foreground continuity belongs to official Goals; background continuity belongs to the controller.
+- Keep orchestration as immutable run configuration, not another state layer. Under `lazycodex`, the main iteration owns hypothesis selection, integration review, and `finish`; bounded children never own Git or autoresearch state.
 - The background controller owns each worker process tree and must terminate it before stopping or failing.
 - Do not add compatibility branches for unreleased schemas. A schema change must fail clearly and require an explicit fresh run.
 

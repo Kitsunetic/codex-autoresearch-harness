@@ -22,6 +22,22 @@ Never edit either file manually. Use only `<skill-root>/scripts/autoresearch.py`
 
 `finish` is deliberately the only closeout path. It checks that the branch and retained commit still match, rejects out-of-scope changes, creates the trial commit, captures full command output, and records the resulting commit lineage.
 
+## Orchestration Policy
+
+The immutable `run.json` policy is either `direct` or `lazycodex`.
+
+With `direct`, perform the iteration in the main task. With `lazycodex`, the main task still chooses the hypothesis, reviews and integrates child output, and alone calls `finish` or `block`. Keep the main model fixed for the run. Delegate only an independent, bounded subtask whose expected savings exceed coordination overhead:
+
+| Difficulty | Child model | Suitable bounded work |
+|---|---|---|
+| Low | `gpt-5.6-luna` | Read-only extraction/classification or an exact one-file mechanical edit |
+| Medium | `gpt-5.6-terra` | Established-pattern implementation or substantive multi-file analysis |
+| High | `gpt-5.6-sol` | Algorithmic, architectural, concurrency, security, or migration work |
+
+Use a default child agent with no inherited turns and an explicit model. Do not use the installed `lazycodex-worker-*` roles because their `.omo` evidence protocol conflicts with autoresearch scope and state ownership. If model-selectable child agents are unavailable, work directly instead of spawning a same-model child.
+
+At most one write-capable child may work in an iteration; up to two read-only children are allowed only for genuinely independent questions. Give every child an exact ownership boundary. Children must not commit, revert, call `finish` or `block`, create or update a Goal, edit `autoresearch-results/`, write `.omo/`, delegate again, or touch paths outside the confirmed scope.
+
 ## Measurement
 
 The verify command must:

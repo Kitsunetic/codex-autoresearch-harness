@@ -10,7 +10,7 @@ Invoke the skill with a result, not an implementation plan:
 $codex-autoresearch reduce scripts/score.py error_count to 0
 ```
 
-Codex scans the repository and confirms seven values before writing:
+Codex scans the repository and confirms eight values before writing:
 
 | Value | Meaning | Example |
 |---|---|---|
@@ -21,8 +21,9 @@ Codex scans the repository and confirms seven values before writing:
 | Verify | Command that prints the metric | `python3 scripts/score.py` |
 | Target | Number that means done | `0` |
 | Guard | Optional baseline-passing regression check | `npm test` |
+| Orchestration | Direct work or bounded difficulty routing | `lazycodex` when its plugin is enabled |
 
-You also choose foreground or background and may set an iteration limit.
+You also choose foreground or background and may set an iteration limit. Orchestration defaults to `lazycodex` when the enabled `omo@sisyphuslabs` plugin is detected in `CODEX_HOME/config.toml`, and to `direct` otherwise. An explicit CLI policy overrides detection; the resolved policy is then immutable for the run.
 
 Autoresearch requires a clean named branch. Commit or stash existing changes before launch. Scope entries are path prefixes, not globs: use `src` rather than `src/**/*.ts`.
 
@@ -71,6 +72,18 @@ Each iteration:
 6. It appends the result and continues.
 
 The Goal is marked complete only after the retained metric reaches the confirmed target.
+
+## LazyCodex Orchestration
+
+The optional `lazycodex` policy does not replace the Goal or detached controller. It freezes one routing contract in `run.json` and keeps the main autoresearch model unchanged. For each iteration, the main task decides whether to work directly or delegate a bounded child task:
+
+| Difficulty | Model | Typical child task |
+|---|---|---|
+| Low | `gpt-5.6-luna` | Read-only extraction or an exact one-file mechanical edit |
+| Medium | `gpt-5.6-terra` | Established-pattern implementation or substantive multi-file analysis |
+| High | `gpt-5.6-sol` | Algorithmic, architectural, concurrency, security, or migration work |
+
+The main task always owns the hypothesis, integration review, and `finish`/`block`. Children cannot commit, modify autoresearch state, create Goals, write `.omo`, or delegate again. If model-selectable child agents are unavailable, the iteration proceeds directly.
 
 ## Background
 

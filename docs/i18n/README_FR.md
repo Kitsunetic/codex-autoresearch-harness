@@ -28,7 +28,7 @@ Puis lancez :
 $codex-autoresearch réduire error_count de `python3 scripts/score.py` à 0
 ```
 
-Avant toute écriture, Codex confirme l'objectif, le périmètre, la mesure initiale, la cible, la commande, le guard facultatif et le mode foreground/background.
+Avant toute écriture, Codex confirme l'objectif, le périmètre, la mesure initiale, la cible, la commande, le guard facultatif, le mode foreground/background et la politique d'orchestration.
 
 ## Boucle
 
@@ -53,6 +53,8 @@ Codex choisit les hypothèses et modifie le code. Le script de contrôle possèd
 | Contrôle | Pause/reprise du Goal | Status/stop/resume via `$codex-autoresearch` |
 
 Foreground continue grâce au Goal officiel. Background n'utilise pas de Goal ; le controller assure la continuité. L'installation ne modifie aucun réglage Codex.
+
+Lorsque le plugin activé `omo@sisyphuslabs` est détecté, l'orchestration utilise `lazycodex` par défaut ; sinon elle utilise `direct`. Un choix explicite est prioritaire. `lazycodex` confie uniquement des sous-tâches bornées à Luna, Terra ou Sol selon leur difficulté, sans changer le modèle principal. L'hypothèse, la revue d'intégration et `finish` restent sous la responsabilité de la tâche principale, sans état `.omo` ni hook supplémentaire.
 
 ## Résultats
 

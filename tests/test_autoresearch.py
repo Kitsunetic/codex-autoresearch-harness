@@ -24,6 +24,7 @@ class AutoresearchTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp.name) / "repo"
+        self.codex_home = Path(self.temp.name) / "codex-home"
         (self.repo / "src").mkdir(parents=True)
         (self.repo / "src" / "value.txt").write_text("3\n", encoding="utf-8")
         (self.repo / "score.py").write_text(
@@ -56,6 +57,8 @@ class AutoresearchTest(unittest.TestCase):
         )
 
     def cli(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment["CODEX_HOME"] = str(self.codex_home)
         return subprocess.run(
             [sys.executable, str(SCRIPT), *args],
             cwd=self.repo,
@@ -63,6 +66,7 @@ class AutoresearchTest(unittest.TestCase):
             text=True,
             encoding="utf-8",
             check=check,
+            env=environment,
         )
 
     def init(self, *extra: str, mode: str = "init") -> dict:
@@ -372,6 +376,74 @@ class AutoresearchTest(unittest.TestCase):
         )
         self.assertIsNone(run["background"])
 
+    def test_direct_orchestration_is_default_and_visible(self) -> None:
+        self.init()
+        run = json.loads(
+            (self.repo / "autoresearch-results" / "run.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("direct", run["orchestration_policy"])
+        self.assertEqual("direct", self.status()["orchestration_policy"])
+
+    def test_lazycodex_orchestration_is_default_when_plugin_is_enabled(self) -> None:
+        self.codex_home.mkdir()
+        (self.codex_home / "config.toml").write_text(
+            '[plugins."omo@sisyphuslabs"]\nenabled = true\n',
+            encoding="utf-8",
+        )
+        self.init()
+        self.assertEqual("lazycodex", self.status()["orchestration_policy"])
+
+    def test_explicit_direct_orchestration_overrides_lazycodex_detection(self) -> None:
+        self.codex_home.mkdir()
+        (self.codex_home / "config.toml").write_text(
+            '[plugins."omo@sisyphuslabs"]\nenabled = true\n',
+            encoding="utf-8",
+        )
+        self.init("--orchestration-policy", "direct")
+        self.assertEqual("direct", self.status()["orchestration_policy"])
+
+    def test_lazycodex_orchestration_is_immutable_and_structured(self) -> None:
+        self.init("--orchestration-policy", "lazycodex")
+        run_path = self.repo / "autoresearch-results" / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        self.assertEqual("lazycodex", run["orchestration_policy"])
+        self.assertEqual("lazycodex", self.status()["orchestration_policy"])
+
+        paths, loaded_run, events, state = autoresearch_runtime.load_context(self.repo)
+        self.assertEqual(run_path.resolve(), paths.run.resolve())
+        self.assertTrue(events)
+        prompt = autoresearch_runtime.worker_prompt(self.repo, SCRIPT, loaded_run, state)
+        start = prompt.index("<autoresearch-orchestration>") + len(
+            "<autoresearch-orchestration>"
+        )
+        end = prompt.index("</autoresearch-orchestration>")
+        contract = json.loads(prompt[start:end])
+        self.assertEqual("lazycodex", contract["policy"])
+        self.assertEqual(
+            ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"],
+            [route["model"] for route in contract["routes"]],
+        )
+        self.assertEqual(1, contract["limits"]["write_capable_children"])
+        self.assertIn("finish", contract["main_owns"])
+        self.assertIn("autoresearch-results", contract["children_must_not"])
+        self.assertIn(".omo", contract["children_must_not"])
+
+    def test_direct_worker_prompt_has_no_delegation_contract(self) -> None:
+        self.init()
+        _, run, _, state = autoresearch_runtime.load_context(self.repo)
+        prompt = autoresearch_runtime.worker_prompt(self.repo, SCRIPT, run, state)
+        self.assertNotIn("<autoresearch-orchestration>", prompt)
+
+    def test_invalid_orchestration_policy_fails_validation(self) -> None:
+        self.init()
+        run_path = self.repo / "autoresearch-results" / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run["orchestration_policy"] = "automatic"
+        run_path.write_text(json.dumps(run), encoding="utf-8")
+        completed = self.cli("status", "--repo", str(self.repo), check=False)
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("orchestration_policy must be direct or lazycodex", completed.stderr)
+
     def test_baseline_side_effect_stops_before_guard_and_is_diagnostic(self) -> None:
         (self.repo / "score.py").write_text(
             "from pathlib import Path\n"
@@ -483,7 +555,7 @@ class AutoresearchTest(unittest.TestCase):
         events[0]["guard_log"] = "logs/0000-baseline-guard.json"
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": autoresearch_runtime.SCHEMA_VERSION,
                 "run_id": events[0]["run_id"],
                 "seq": 1,
                 "time": "2026-01-01T00:00:00Z",
@@ -621,7 +693,10 @@ class AutoresearchTest(unittest.TestCase):
             "import json, pathlib, subprocess, sys\n"
             "args = sys.argv[1:]\n"
             "repo = pathlib.Path(args[args.index('-C') + 1])\n"
-            "sys.stdin.read()\n"
+            "prompt = sys.stdin.read()\n"
+            "contract_text = prompt.split('<autoresearch-orchestration>', 1)[1].split('</autoresearch-orchestration>', 1)[0]\n"
+            "contract = json.loads(contract_text)\n"
+            "assert [route['model'] for route in contract['routes']] == ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']\n"
             f"script = {str(SCRIPT)!r}\n"
             "status = json.loads(subprocess.check_output([sys.executable, script, 'status', '--repo', str(repo)], text=True))\n"
             "value = int(status['metric']['current'])\n"
@@ -631,9 +706,16 @@ class AutoresearchTest(unittest.TestCase):
             encoding="utf-8",
         )
         fake.chmod(0o755)
-        launched = self.init("--codex-bin", str(fake), mode="launch")
+        launched = self.init(
+            "--codex-bin",
+            str(fake),
+            "--orchestration-policy",
+            "lazycodex",
+            mode="launch",
+        )
         self.assertIn(launched["status"], {"running", "complete"})
         status = self.wait_for_status("complete")
+        self.assertEqual("lazycodex", status["orchestration_policy"])
         self.assertEqual(2, status["iterations"])
         runtime_log = Path(status["runtime_log"]).read_text(encoding="utf-8")
         self.assertEqual(2, runtime_log.count('"event":"worker_started"'))

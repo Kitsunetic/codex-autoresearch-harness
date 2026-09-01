@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+import tomllib
 import traceback
 import uuid
 from pathlib import Path
@@ -18,6 +19,7 @@ from typing import Any, NoReturn
 
 from autoresearch_core import (
     AutoresearchError,
+    ORCHESTRATION_POLICIES,
     Paths,
     RunState,
     SCHEMA_VERSION,
@@ -87,6 +89,14 @@ def add_run_arguments(parser: argparse.ArgumentParser, *, background: bool) -> N
     parser.add_argument("--guard", help="Regression command; exit code 0 means pass.")
     parser.add_argument("--max-iterations", type=int)
     parser.add_argument("--timeout-seconds", type=int, default=1800)
+    parser.add_argument(
+        "--orchestration-policy",
+        choices=sorted(ORCHESTRATION_POLICIES),
+        help=(
+            "Run directly or route bounded child tasks by LazyCodex difficulty tiers. "
+            "Defaults to lazycodex when the omo@sisyphuslabs plugin is enabled, otherwise direct."
+        ),
+    )
     if background:
         parser.add_argument(
             "--execution-policy",
@@ -255,6 +265,27 @@ def require_command_preserved_repository(
         )
 
 
+def default_orchestration_policy() -> str:
+    configured_home = os.environ.get("CODEX_HOME")
+    codex_home = (
+        Path(configured_home).expanduser()
+        if configured_home
+        else Path.home() / ".codex"
+    )
+    try:
+        with (codex_home / "config.toml").open("rb") as config_file:
+            config = tomllib.load(config_file)
+    except (OSError, tomllib.TOMLDecodeError):
+        return "direct"
+    plugins = config.get("plugins")
+    if not isinstance(plugins, dict):
+        return "direct"
+    lazycodex = plugins.get("omo@sisyphuslabs")
+    if not isinstance(lazycodex, dict):
+        return "direct"
+    return "lazycodex" if lazycodex.get("enabled") is True else "direct"
+
+
 def initialize_run(args: argparse.Namespace) -> dict[str, Any]:
     repo = Path(args.repo).expanduser().resolve()
     require_git_repo(repo)
@@ -267,6 +298,7 @@ def initialize_run(args: argparse.Namespace) -> dict[str, Any]:
     verify = args.verify.strip()
     metric_key = None if args.metric_key is None else args.metric_key.strip()
     guard = None if args.guard is None else args.guard.strip()
+    orchestration_policy = args.orchestration_policy or default_orchestration_policy()
     codex_bin: str | None = None
     model: str | None = None
     if not goal:
@@ -356,6 +388,7 @@ def initialize_run(args: argparse.Namespace) -> dict[str, Any]:
             "repo": str(repo),
             "branch": branch,
             "mode": args.mode,
+            "orchestration_policy": orchestration_policy,
             "goal": goal,
             "scope": scopes,
             "metric": {
@@ -408,6 +441,7 @@ def initialize_run(args: argparse.Namespace) -> dict[str, Any]:
         return {
             "run_id": run_id,
             "mode": args.mode,
+            "orchestration_policy": orchestration_policy,
             "status": status,
             "baseline": decimal_json(baseline),
             "target": target_json,
@@ -891,6 +925,60 @@ def consume_stop_request(paths: Paths, run: dict[str, Any]) -> bool:
     return True
 
 
+def orchestration_prompt(policy: str) -> str:
+    if policy == "direct":
+        return ""
+    contract = {
+        "policy": "lazycodex",
+        "decision": (
+            "Delegate only when a bounded child task is likely to save more work than its "
+            "coordination overhead; otherwise execute directly."
+        ),
+        "routes": [
+            {
+                "difficulty": "low",
+                "model": "gpt-5.6-luna",
+                "tasks": "bounded read-only inspection or an exact one-file mechanical edit",
+            },
+            {
+                "difficulty": "medium",
+                "model": "gpt-5.6-terra",
+                "tasks": "established-pattern implementation or substantive multi-file analysis",
+            },
+            {
+                "difficulty": "high",
+                "model": "gpt-5.6-sol",
+                "tasks": "algorithmic, architectural, concurrency, security, or migration work",
+            },
+        ],
+        "spawn": {
+            "agent_type": "default",
+            "fork_turns": "none",
+            "fallback": "execute directly when model-selectable child agents are unavailable",
+        },
+        "limits": {"write_capable_children": 1, "read_only_children": 2},
+        "main_owns": ["hypothesis", "integration_review", "finish", "block"],
+        "children_must_not": [
+            "commit",
+            "revert",
+            "finish",
+            "block",
+            "Goal",
+            "autoresearch-results",
+            ".omo",
+            "nested delegation",
+            "out-of-scope paths",
+        ],
+    }
+    return (
+        "\nApply this immutable per-run routing contract. Spawn only independent, bounded "
+        "tasks with an explicit model and ownership boundary. Review every child result before "
+        "finalizing the experiment.\n<autoresearch-orchestration>"
+        f"{json_text(contract)}"
+        "</autoresearch-orchestration>\n"
+    )
+
+
 def worker_prompt(repo: Path, script: Path, run: dict[str, Any], state: RunState) -> str:
     python_command = shlex.quote(sys.executable)
     script_command = shlex.quote(str(script))
@@ -901,6 +989,7 @@ def worker_prompt(repo: Path, script: Path, run: dict[str, Any], state: RunState
         else f"JSON key {run['metric']['json_key']}"
     )
     guard = run["guard"] or "none"
+    routing = orchestration_prompt(run["orchestration_policy"])
     return f"""You are one background iteration worker for a codex-autoresearch run.
 
 Repository: {repo}
@@ -919,7 +1008,7 @@ Rules:
 4. Finalize exactly once with `{python_command} {script_command} finish --repo {repo_argument} --description <short-description>`.
 5. If and only if no experiment is possible without external input or an environment change, leave the repo clean and run `{python_command} {script_command} block --repo {repo_argument} --reason <precise-reason>`.
 6. Do not ask the user questions and do not create or update a Codex Goal. Exit immediately after finish or block.
-"""
+{routing}"""
 
 
 def controller_command(run: dict[str, Any], repo: Path, last_message: Path) -> list[str]:

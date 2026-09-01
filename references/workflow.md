@@ -13,7 +13,8 @@ Read this reference for every `$codex-autoresearch` invocation.
 5. Choose repo-relative scope prefixes. Use `src`, `tests/api`, or a file path; never pass globs or absolute paths.
 6. Pick a target that means the user's goal is achieved. The baseline alone is not a target.
 7. Select a guard only if it passes before any edits and protects behavior not already represented by the metric.
-8. Ask for one confirmation before initialization. Do not turn each inferred field into a separate question when the repo already answers it.
+8. Resolve orchestration from the enabled Codex plugin configuration: use `lazycodex` when `omo@sisyphuslabs` is enabled, otherwise `direct`. An explicit user choice overrides detection. Even under `lazycodex`, work directly when delegation overhead exceeds the bounded child task.
+9. Ask for one confirmation before initialization. Do not turn each inferred field into a separate question when the repo already answers it.
 
 Use this confirmation shape:
 
@@ -24,6 +25,7 @@ Metric: ... (baseline ..., target ..., lower/higher is better)
 Verify: ...
 Guard: ... / none
 Mode: foreground / background
+Orchestration: direct / lazycodex
 Rollback: failed trials are reverted with Git
 ```
 

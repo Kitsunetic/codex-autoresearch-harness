@@ -39,8 +39,9 @@ Resolve commands from this skill's own directory as `<skill-root>/scripts/autore
    - a numeric target,
    - an optional baseline-passing guard command,
    - foreground or background,
+   - orchestration policy: detected enabled LazyCodex defaults to `lazycodex`, otherwise `direct`; an explicit choice wins,
    - an optional iteration limit.
-4. Run candidate measurement commands read-only if needed, then show one concise confirmation. Include the baseline, target, scope, commands, mode, and the fact that each trial is committed and failed trials are reverted.
+4. Run candidate measurement commands read-only if needed, then show one concise confirmation. Include the baseline, target, scope, commands, mode, orchestration policy, and the fact that each trial is committed and failed trials are reverted.
 5. Do not write project files, initialize artifacts, create a Goal, or launch a controller before clear user approval such as `go`.
 
 ## Start
@@ -56,7 +57,8 @@ python3 <skill-root>/scripts/autoresearch.py init \
   --repo <repo> --goal <goal> --scope <path> \
   --metric-name <name> --direction <lower|higher> \
   --verify <command> [--metric-key <key>] --target <number> \
-  [--guard <command>] [--max-iterations <n>]
+  [--guard <command>] [--max-iterations <n>] \
+  [--orchestration-policy <direct|lazycodex>]
 ```
 
 Then call `get_goal`. Reuse a matching unfinished Goal, otherwise call `create_goal`. The Goal objective must identify this as codex-autoresearch, include the returned run id, metric and target, and say to continue the validated experiment loop until terminal status. If a different unfinished Goal exists, stop and explain the conflict. Official Codex Goal continuation owns foreground persistence; this skill does not install hooks or modify Codex configuration.
@@ -73,6 +75,7 @@ python3 <skill-root>/scripts/autoresearch.py launch \
   --metric-name <name> --direction <lower|higher> \
   --verify <command> [--metric-key <key>] --target <number> \
   [--guard <command>] [--max-iterations <n>] \
+  [--orchestration-policy <direct|lazycodex>] \
   --execution-policy <danger-full-access|workspace-write>
 ```
 
@@ -85,7 +88,7 @@ After a successful launch, report the run id, baseline, controller PID, results 
 For each foreground iteration:
 
 1. Read validated status and recent events.
-2. Inspect evidence and choose one focused hypothesis that differs from discarded attempts.
+2. Inspect evidence and choose one focused hypothesis that differs from discarded attempts. If `run.json` selects `lazycodex`, apply the bounded routing contract in `references/experiment.md`; the main task still owns the hypothesis, integration review, and finalization.
 3. Modify only confirmed scopes. Do not manually commit, revert, or edit `autoresearch-results/`.
 4. Finalize exactly once:
 

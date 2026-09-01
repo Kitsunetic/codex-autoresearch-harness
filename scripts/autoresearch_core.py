@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 RESULTS_DIR = "autoresearch-results"
 RUN_FILE = "run.json"
 EVENTS_FILE = "events.jsonl"
@@ -28,6 +28,7 @@ PROTECTED_PREFIXES = (
     ".agents/skills/codex-autoresearch",
 )
 TERMINAL_EVENTS = {"blocked", "complete", "error", "stopped"}
+ORCHESTRATION_POLICIES = {"direct", "lazycodex"}
 
 
 class AutoresearchError(RuntimeError):
@@ -222,6 +223,7 @@ RUN_KEYS = {
     "repo",
     "branch",
     "mode",
+    "orchestration_policy",
     "goal",
     "scope",
     "metric",
@@ -249,6 +251,10 @@ def validate_run(payload: Any, *, source: str) -> dict[str, Any]:
             raise AutoresearchError(f"{source}.{key} must be a non-empty string")
     if payload["mode"] not in {"foreground", "background"}:
         raise AutoresearchError(f"{source}.mode must be foreground or background")
+    if payload["orchestration_policy"] not in ORCHESTRATION_POLICIES:
+        raise AutoresearchError(
+            f"{source}.orchestration_policy must be direct or lazycodex"
+        )
     if not isinstance(payload["scope"], list) or not payload["scope"]:
         raise AutoresearchError(f"{source}.scope must be a non-empty string array")
     if any(not isinstance(item, str) or not item for item in payload["scope"]):
@@ -1192,6 +1198,7 @@ def status_payload(
     return {
         "run_id": run["run_id"],
         "mode": run["mode"],
+        "orchestration_policy": run["orchestration_policy"],
         "status": state.status,
         "goal": run["goal"],
         "repo": run["repo"],

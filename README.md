@@ -58,6 +58,7 @@ Codex: Baseline: 5
        Verify: python3 scripts/score.py, JSON key error_count
        Guard: python3 -m pytest -q
        Run in foreground or background?
+       Orchestration: lazycodex (enabled plugin detected)
 
 You:   Background. Go.
 ```
@@ -97,6 +98,14 @@ The control script owns commits, verification, rollback, and state. Codex owns t
 
 Foreground and background use the same experiment rules. A run uses one mode at a time. Foreground continuation uses a Codex Goal; background continuation belongs to the detached controller.
 
+## Optional LazyCodex Routing
+
+When the enabled `omo@sisyphuslabs` plugin is detected in `CODEX_HOME/config.toml`, orchestration defaults to `lazycodex`; otherwise it defaults to `direct`. An explicit `--orchestration-policy direct` or `lazycodex` overrides detection. The resolved value is frozen in `run.json`.
+
+`lazycodex` keeps the main autoresearch model fixed and routes only bounded child tasks by difficulty: Luna for low-cost mechanical work, Terra for established multi-file work, and Sol for high-complexity work. The main iteration still chooses the hypothesis, reviews the integrated diff, and alone calls `finish`.
+
+This policy does not create `.omo` state, install hooks, or use the `lazycodex-worker-*` roles. If model-selectable child agents are unavailable or delegation would cost more than doing the task directly, the main iteration works directly.
+
 ## What Gets Confirmed
 
 Before the first write, Codex shows:
@@ -106,6 +115,7 @@ Before the first write, Codex shows:
 - the metric command and explicit parser;
 - an optional regression guard;
 - foreground or background mode;
+- direct or LazyCodex orchestration policy;
 - an optional iteration limit.
 
 Initialization requires a clean named Git branch. One run manages one repository.

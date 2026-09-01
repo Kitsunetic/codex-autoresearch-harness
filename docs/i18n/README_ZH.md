@@ -28,7 +28,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 $codex-autoresearch 把 `python3 scripts/score.py` 的 error_count 降到 0
 ```
 
-Codex 会在首次写入前确认：目标、可修改范围、当前值、目标值、指标命令、可选 guard，以及 foreground 或 background。
+Codex 会在首次写入前确认：目标、可修改范围、当前值、目标值、指标命令、可选 guard、foreground 或 background，以及编排策略。
 
 ## 工作方式
 
@@ -53,6 +53,8 @@ Codex 负责分析和改代码；控制脚本负责 Git 边界、测量、回滚
 | 控制 | Goal 的暂停/恢复 | 用 `$codex-autoresearch` 查询、停止、恢复 |
 
 Foreground 由 Codex 官方 Goal 持续运行。Background 不创建 Goal，由 controller 负责持续运行。安装不会修改 Codex 配置。
+
+检测到已启用的 `omo@sisyphuslabs` plugin 时，编排默认使用 `lazycodex`，否则使用 `direct`；显式选择优先。`lazycodex` 不切换主模型，只按难度将范围明确的子任务分配给 Luna、Terra 或 Sol。假设选择、集成审查和 `finish` 仍由主任务负责，也不会创建 `.omo` 状态或额外 hook。
 
 ## 结果文件
 

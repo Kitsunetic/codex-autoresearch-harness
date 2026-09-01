@@ -28,7 +28,7 @@ codex --dangerously-bypass-approvals-and-sandbox
 $codex-autoresearch `python3 scripts/score.py`의 error_count를 0으로 줄여줘
 ```
 
-첫 쓰기 전에 목표, 수정 범위, 기준값, 목표값, 측정 명령, 선택적 guard, foreground/background를 확인합니다.
+첫 쓰기 전에 목표, 수정 범위, 기준값, 목표값, 측정 명령, 선택적 guard, foreground/background, orchestration 정책을 확인합니다.
 
 ## 동작 방식
 
@@ -53,6 +53,8 @@ Codex는 가설과 코드 수정을 담당하고, 제어 스크립트는 Git 경
 | 제어 | Goal pause/resume | `$codex-autoresearch` status/stop/resume |
 
 Foreground는 공식 Goal로 계속 실행됩니다. Background는 Goal 없이 controller가 지속 실행합니다. 설치 과정에서 Codex 설정은 변경되지 않습니다.
+
+활성화된 `omo@sisyphuslabs` plugin이 감지되면 orchestration 기본값은 `lazycodex`, 그렇지 않으면 `direct`입니다. 명시적 설정은 자동 감지보다 우선합니다. `lazycodex`는 메인 모델을 유지하면서 제한된 하위 작업만 난이도에 따라 Luna/Terra/Sol로 보냅니다. 가설 선택, 통합 검토, `finish`는 계속 메인 작업이 담당하며 `.omo` 상태나 추가 hook을 만들지 않습니다.
 
 ## 결과
 

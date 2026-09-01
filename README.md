@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
-  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
+  <a href="https://github.com/Kitsunetic/codex-autoresearch-harness"><img src="https://img.shields.io/github/stars/Kitsunetic/codex-autoresearch-harness?style=social" alt="GitHub Stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
 </p>
 
@@ -28,6 +28,8 @@
 
 ---
 
+This repository provides the Codex Autoresearch Harness: the skill, control plane, and deterministic runtime for measurable Git-backed experiments.
+
 Tell Codex what measurable result you want. Codex inspects the repository, confirms the experiment with you, changes one thing, verifies it, keeps improvements, reverts failures, and repeats until the target is reached.
 
 Autoresearch works for test failures, coverage, type errors, warnings, latency, binary size, reproducible security findings, and any other outcome a command can measure.
@@ -37,7 +39,7 @@ Autoresearch works for test failures, coverage, type errors, warnings, latency, 
 Install from Codex:
 
 ```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+$skill-installer install https://github.com/Kitsunetic/codex-autoresearch-harness
 ```
 
 Open a clean Git repository with Full Access:
@@ -238,7 +240,7 @@ Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch),
   title = {Codex Autoresearch: Autonomous Goal-Driven Experimentation for Codex},
   year = {2026},
   publisher = {GitHub},
-  url = {https://github.com/leo-lilinxiao/codex-autoresearch}
+  url = {https://github.com/Kitsunetic/codex-autoresearch-harness}
 }
 ```
 
@@ -246,11 +248,11 @@ GitHub also reads [CITATION.cff](CITATION.cff) for its **Cite this repository** 
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=leo-lilinxiao%2Fcodex-autoresearch&type=timeline&legend=top-left">
+<a href="https://www.star-history.com/?repos=Kitsunetic%2Fcodex-autoresearch-harness&type=timeline&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=leo-lilinxiao/codex-autoresearch&type=timeline&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=Kitsunetic/codex-autoresearch-harness&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=Kitsunetic/codex-autoresearch-harness&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=Kitsunetic/codex-autoresearch-harness&type=timeline&legend=top-left" />
  </picture>
 </a>
 
